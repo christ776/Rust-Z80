@@ -13,19 +13,19 @@ impl Z80 {
 
   }
 
-  pub fn pc(&self) -> i16 {
+  pub fn pc(&self) -> u16 {
     return 0;
   }
 
-  pub fn c(&self) -> i16 {
+  pub fn c(&self) -> u16 {
     return 0;
   }
 
-   pub fn e(&self) -> i16 {
+   pub fn e(&self) -> u16 {
     return 0;
   } 
 
-   pub fn de(&self) -> i16 {
+   pub fn de(&self) -> u16 {
     return 0;
   }
 }

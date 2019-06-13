@@ -7,7 +7,9 @@ pub use crate::z80::*;
 
 fn main() {
     println!("Hello, world!");
+    static ZEXDOC: &'static [u8] = include_bytes!("zexdoc.com");
     let mut cpu = z80::Z80::new();
+    cpu.mem.write(0x0100, ZEXDOC);
     loop {
         cpu.step();
         match cpu.pc() {
@@ -29,7 +31,7 @@ fn cpm_bdos(cpu: &Z80) {
             // output a string at register DE until '$'
             let mut addr = cpu.de();
             loop {
-                let c = cpu.mem.read(addr) as u8 as char;
+                let c = cpu.mem.read(addr) as char;
                 addr = (addr + 1) & 0xFF;
                 if c != '$' {
                     print!("{}", c);

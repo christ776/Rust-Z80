@@ -1,5 +1,5 @@
 pub struct Memory {
-  work_ram: [i8; 16384]
+  work_ram: [u8; 16384]
 }
 
 impl Memory {
@@ -10,11 +10,19 @@ impl Memory {
     }
   }
 
-  pub fn write(&self) {
-
+  pub fn w8f(&mut self, offset:u16, data:u8) {
+    self.work_ram[offset as usize] = data;
   }
 
-  pub fn read(&self, addr: i16) -> i8 {
-    return 0;
+  pub fn write(&mut self, addr:u16, data: &[u8]) {
+      let mut offset = 0;
+      for b in data {
+          self.w8f(addr + offset, *b);
+          offset += 1;
+      }
+  }
+
+  pub fn read(&self, addr: u16) -> u8 {
+    return self.work_ram[addr as usize];
   }
 }
