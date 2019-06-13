@@ -23,6 +23,6 @@ impl Memory {
   }
 
   pub fn read(&self, addr: u16) -> u8 {
-    return self.work_ram[addr as usize];
+     self.work_ram[addr as usize]
   }
 }

@@ -6,7 +6,6 @@ pub mod memory;
 pub use crate::z80::*;
 
 fn main() {
-    println!("Hello, world!");
     static ZEXDOC: &'static [u8] = include_bytes!("zexdoc.com");
     let mut cpu = z80::Z80::new();
     cpu.mem.write(0x0100, ZEXDOC);
