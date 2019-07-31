@@ -3,4 +3,14 @@
 [[package]]
 name = "Z80"
 version = "0.1.0"
+dependencies = [
+ "bitvec 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
+[[package]]
+name = "bitvec"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[metadata]
+"checksum bitvec 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b323b81e6ddfedd52b4d40714d841f3015ad8038d660348462bd35c420630598"

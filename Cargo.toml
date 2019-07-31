@@ -5,3 +5,5 @@ authors = ["Christian De Martino <chrisddm@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+
+bitvec = "0.13"
