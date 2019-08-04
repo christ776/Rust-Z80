@@ -1,13 +1,13 @@
 #[allow(unused_imports)]
-// use z80::Z80;
 
 mod test_opcodes {
   use Z80::z80;
-  // use super::z80::Z80;
 
   #[test]
   fn test_ld_ihl_n() {
       let mut cpu = z80::Z80::new();
+      cpu.set_sp(0xFFFF);
+      cpu.set_pc(0x0000);
       let prog = [
           0x21, 0x00, 0x20,   // LD HL,0x2000
           0x36, 0x33,         // LD (HL),0x33
@@ -15,18 +15,17 @@ mod test_opcodes {
           0x36, 0x65,         // LD (HL),0x65
       ];
       cpu.mem.write(0x0000, &prog);
-
-      cpu.step();
+      cpu.exec();
       assert!(0x2000 == cpu.HL);
-      cpu.step();
+      cpu.exec();
       assert!(0x33 == cpu.mem.r8(0x2000));
-      cpu.step();
+      cpu.exec();
       assert!(0x1000 == cpu.HL);
-      cpu.step();
+      cpu.exec();
       assert!(0x65 == cpu.mem.r8(0x1000));
   }
 
-    #[test]
+  #[test]
   fn test_ld_ihl() {
       let mut cpu = z80::Z80::new();
       let prog = [
@@ -42,11 +41,17 @@ mod test_opcodes {
       cpu.set_A(0x33);
       cpu.set_HL(0x1000);
       cpu.set_pc(0x0100);
+      cpu.exec();
       assert_eq!(0x33, cpu.mem.r8(0x1000));
+      cpu.exec();
       assert_eq!(0x33, cpu.b);
+      cpu.exec();
       assert_eq!(0x33, cpu.c);
+      cpu.exec();
       assert_eq!(0x33, cpu.d);
+      cpu.exec();
       assert_eq!(0x33, cpu.e);
+      cpu.exec();
       assert_eq!(0x33, cpu.get_HL_H());
   }
 }
