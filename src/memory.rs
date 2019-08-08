@@ -39,7 +39,7 @@ impl Memory {
     h << 8 | l
   }
 
-  pub fn r8(&self, addr: u16) -> u8 {
-     self.work_ram[addr as usize]
+  pub fn r8(&self, addr: u16) -> i8 {
+     self.work_ram[addr as usize] as i8
   }
 }
