@@ -53,7 +53,7 @@ impl Z80 {
   }
 
   pub fn flags_get_z(&mut self) -> bool {
-    (self.flags & 0b0100_0000) >> 7 != 0
+    (self.flags & 0b0100_0000) >> 6 != 0
   }
 
   pub fn flags_set_z(&mut self, val:bool) {
@@ -222,6 +222,7 @@ impl Z80 {
     match op {
         0x00 => { self.nop(); },
         0x01 => { self.ld_bc_nn() },
+        0x07 => {self.rlca()},
         0x09 | 0x19 => { self.add_hl_ss(op) },
         0x20 => { self.jr_nz() },
         0x11 | 0x22 | 0x21 => { self.ld_dd_nn(op) },
@@ -233,7 +234,7 @@ impl Z80 {
         0x2f => { self.cpl() },
         0x36 => { self.ld_hl_n()}
         0x3a => { self.ld_a_nn()},
-        0x0e | 0x06 | 0x3e | 0x2e => { self.ld_r_n(op)},
+        0x0e | 0x06 | 0x16 | 0x1e | 0x3e | 0x26 | 0x2e => { self.ld_r_n(op)},
         0xb6 => { self.or_hl() },
         0xce => { self.adc_r () },
         0x49 => { self.ld_r_r()},
@@ -243,20 +244,133 @@ impl Z80 {
 
         0x70 | 0x73 | 0x77 | 0x71 => { self.ld_hl_r(op)},
         0x76 => { self.halt()},
-        0x83 | 0x87 | 0x80 | 0x81 => { self.add_a_r(op)},
-        0x97 => { self.sub_s(op) },
+        0x83 | 0x87 | 0x80 | 0x81 | 0x82 | 0x84 | 0x85 => { self.add_a_r(op)},
+        0x97 => { self.sub_r(op) },
         0xa9 => { self.xor_r(op) },
         0xb0 | 0xb4 => { self.or_r(op) },
+        0xc0 | 0xc8 | 0xd0 | 0xd8 | 0xe0 | 0xe8 | 0xf0 | 0xf8 => {self.ret_cc(op)},
         0xc3 => { self.jmp(); },
+        0xc6 => { self.add_a_n(); },
         0xcd => { self.call() },
+        0xd6 => {self.sub_n(op)},
         0xe1 => {self.pop_qq()},
         0xea | 0xe2 | 0xda | 0xc2 => { self.jp_cc_nn(op) },
-        0xf4 => { self.call_cc_nn() },
+        0xcc | 0xc4 | 0xec | 0xd4 | 0xdc | 0xe4| 0xf4 | 0xfc => { self.call_cc_nn(op) },
         0xf5 | 0xc5 | 0xd5 | 0xe5 => { self.push_qq(op) },
         0xff | 0xc7 | 0xdf => { self.rst_p(op) },
         0xf9 => { self.ld_sp_hl() },
         _ => {  panic!("unknown cp/m call {}!"); },
     }
+  }
+
+  pub fn rlca(&mut self) {
+    let r = (self.a as u8).rotate_left(1);
+    self.flags_set_h(false);
+    self.flags_set_n(false);
+    self.flags_set_c((r & 0x01) == 0x01);
+    self.set_a(r as i8);
+  }
+
+  pub fn ret_cc(&mut self, op: u8) {
+    match op {
+      0xc0 => {
+        if !self.flags_get_z() {
+           let data = self.mem.r16(self.sp);
+           self.set_sp(self.sp + 2);
+           self.set_pc(data);
+        }
+      },
+      0xc8 => {
+        // Ret Z
+        if self.flags_get_z() {
+           let data = self.mem.r16(self.sp);
+           self.set_sp(self.sp + 2);
+           self.set_pc(data);
+        }
+      },
+      0xd0 => {
+        // Ret NC
+        if !self.flags_get_c() {
+           let data = self.mem.r16(self.sp);
+           self.set_sp(self.sp + 2);
+           self.set_pc(data);
+        }
+      },
+      0xd8 => {
+        // Ret C
+        if self.flags_get_c() {
+           let data = self.mem.r16(self.sp);
+           self.set_sp(self.sp + 2);
+           self.set_pc(data);
+        }
+      },
+      0xe0 => {
+          // Ret PO
+          if !self.flags_get_pe() {
+           let data = self.mem.r16(self.sp);
+           self.set_sp(self.sp + 2);
+           self.set_pc(data);
+          }
+      },
+      0xe8 => {
+        // Ret PE
+        if self.flags_get_pe() {
+          let data = self.mem.r16(self.sp);
+          self.set_sp(self.sp + 2);
+          self.set_pc(data);
+        }
+      },
+      0xf0 => {
+        // Ret P
+        if !self.flags_get_s() {
+          let data = self.mem.r16(self.sp);
+          self.set_sp(self.sp + 2);
+          self.set_pc(data);
+        }
+      },
+      0xf8 => {
+        // Ret P
+        if self.flags_get_s() {
+          let data = self.mem.r16(self.sp);
+          self.set_sp(self.sp + 2);
+          self.set_pc(data);
+        }
+      },
+      _ => {  panic!("unknown cp/m call {}!"); },
+    }
+  }
+
+  pub fn sub_r(&mut self, op: u8) {
+    let mut res = 0;
+    let mut r = 0;
+    match op {
+      0x97 => {
+        r = self.a as u8;
+        self.set_a(0);
+      },
+      _ => {  panic!("unknown cp/m call {}!"); },
+    }
+    self.flags_set_s(res > 127);
+    self.flags_set_z(res == 0);
+    self.flags_set_n(true);
+    self.flags_set_c(res > 255);
+    self.flags_set_pe(res > 255);
+    // self.flags_set_h((n & 0x0F) + (r & 0x0F) & 0x10 == 0x10);
+  }
+
+  pub fn add_a_n(&mut self) {
+    let n = self.mem.r8(self.pc) as u8;
+    let a = self.a as u8;
+    let res = a as u16 + n as u16;
+    self.set_a(res as i8);
+    self.flags_set_s(res > 127);
+    self.flags_set_z(n == 0);
+    self.flags_set_n(false);
+    self.flags_set_c(res > 255);
+    self.flags_set_pe(res > 255);
+    self.flags_set_h((n & 0x0F) + (a & 0x0F) & 0x10 == 0x10);
+
+    self.step();
   }
 
   pub fn halt(&mut self) {
@@ -425,7 +539,7 @@ impl Z80 {
       self.flags_set_s(r == 0);
       self.flags_set_z(r == 1);
       self.flags_set_n(true);
-      self.flags_set_pe(r as u8 == 0x80);
+      self.flags_set_pe(r as u8 > 0x80);
       self.step();
   }
 
@@ -438,12 +552,12 @@ impl Z80 {
       match sel {
           0b111 => {
               r = self.a as u8;
-              res = (a + r) as u16;
+              res = a as u16 + r as u16;
               self.set_a(res as i8);
           },
           0b000 => {
               r = self.b as u8;
-              res = (a + r) as u16;
+              res = a as u16 + r as u16;
               self.set_a(res as i8);
           },
           0b001 => {
@@ -453,22 +567,22 @@ impl Z80 {
           },
           0b010 => {
               r = self.d as u8;
-              res = (a + r) as u16;
+              res = a as u16 + r as u16;
               self.set_a(res as i8);
           },
           0b011 => {
               r = self.e as u8;
-              res = (a + r) as u16;
+              res = a as u16 + r as u16;
               self.set_a(res as i8);
           },
           0b100 => {
               r = self.get_hl_h() as u8;
-              res = (a + r) as u16;
+              res = a as u16 + r as u16;
               self.set_a(res as i8);
           },
           0b101 => {
               r = self.get_hl_l() as u8;
-              res = (a + r) as u16;
+              res = a as u16 + r as u16;
               self.set_a(res as i8);
           },
           _ => {
@@ -510,26 +624,123 @@ impl Z80 {
       }
     self.step();
   }
-  pub fn call_cc_nn(&mut self) {
-      // f4: if sign positive (p), then push pc onto stack and put nn contents on pc
-      if !self.flags_get_s() {
-          let addr = self.mem.r16(self.pc());
-          let pc = self.pc();
-          self.push(pc);
-          self.set_pc(addr);
-      } else {
-          self.step();
+  pub fn call_cc_nn(&mut self, op: u8) {
+    match op {
+      0xcc => {
+           if self.flags_get_z() {
+            let addr = self.mem.r16(self.pc());
+            let pc = self.pc();
+            // Because this process is a 3-byte instruction,
+            // the Program Counter was incremented by three before the push is executed.
+            self.push(pc + 2);
+            self.set_pc(addr);
+          } else {
+            self.step();
+            self.step();
+          }
       }
+      0xc4 => {
+           if !self.flags_get_z() {
+            let addr = self.mem.r16(self.pc());
+            let pc = self.pc();
+            self.push(pc + 2);
+            self.set_pc(addr);
+          } else {
+            self.step();
+            self.step();
+          }
+      },
+      0xd4 => {
+           if !self.flags_get_c() {
+            let addr = self.mem.r16(self.pc());
+            let pc = self.pc();
+            self.push(pc + 2);
+            self.set_pc(addr);
+          } else {
+            self.step();
+            self.step();
+          }
+      },
+      0xdc => {
+           if self.flags_get_c() {
+            let addr = self.mem.r16(self.pc());
+            let pc = self.pc();
+            self.push(pc + 2);
+            self.set_pc(addr);
+          } else {
+            self.step();
+            self.step();
+          }
+      },
+      0xf4 => {
+          // f4: if sign positive (p), then push pc onto stack and put nn contents on pc
+        if !self.flags_get_s() {
+            let addr = self.mem.r16(self.pc());
+            let pc = self.pc();
+            self.push(pc + 2);
+            self.set_pc(addr);
+        } else {
+          self.step();
+          self.step();
+        }
+      },
+      0xfc => {
+          // f4: if sign positive (p), then push pc onto stack and put nn contents on pc
+        if self.flags_get_s() {
+            let addr = self.mem.r16(self.pc());
+            let pc = self.pc();
+            self.push(pc + 2);
+            self.set_pc(addr);
+        } else {
+          self.step();
+          self.step();
+        }
+      },
+      0xe4 => {
+        if !self.flags_get_pe() {
+            let addr = self.mem.r16(self.pc());
+            let pc = self.pc();
+            self.push(pc + 2);
+            self.set_pc(addr);
+        } else {
+          self.step();
+          self.step();
+        }
+      }
+      0xec => {
+         if self.flags_get_pe() {
+            let addr = self.mem.r16(self.pc());
+            let pc = self.pc();
+            self.push(pc);
+            self.set_pc(addr);
+        } else {
+          self.step();
+          self.step();
+        }
+      },
+       _ => { panic!("unimplemented instruction");}
+    }
   }
 
-  pub fn sub_s(&mut self, op: u8) {
+  pub fn sub_n(&mut self, op: u8) {
       let n = self.mem.r8(self.pc());
-      let r = self.a - n;
-      self.set_a(r);
-      self.flags_set_s(r < 0);
-      self.flags_set_z(r == 0);
+      let a = self.a;
+      let res: i8 = a - n;
+      self.set_a(res);
+      self.flags_set_s(res < 0);
+      self.flags_set_z(res == 0);
       self.flags_set_n(true);
-      self.flags_set_pe(r as u8 == 0x80);
+      self.flags_set_pe(res as u8 > 0x80);
+
+      let mut borrow = false;
+      for mask in [0b000_0001, 0b0000_0010, 0b0000_0100, 0b0000_1000,
+                    0b0001_0000, 0b0010_0000, 0b0100_0000, 0b1000_0000].iter() {
+
+                    if (n as u8 & mask) > (a as u8 & mask) {
+                      borrow = true;
+                    }
+              }
+      self.flags_set_c(borrow);
       self.step();
   }
 
