@@ -13,7 +13,7 @@ fn main() {
     static ZEXDOC: &'static [u8] = include_bytes!("zexdoc.com");
     let mut cpu = z80::Z80::new();
     cpu.mem.write(0x0100, ZEXDOC);
-    cpu.set_sp(0xFFFF);
+    cpu.set_sp(0xF000);
     cpu.set_pc(0x0100);
 
     loop {
@@ -37,12 +37,13 @@ fn cpm_bdos(cpu: &mut Z80) {
             // output a string at register DE until '$'
             let mut addr = cpu.de();
             loop {
-                let c = cpu.mem.r8(addr) as u8 as char;
-                addr = (addr + 1) & 0xFFFF;
-                if c != '$' {
-                    print!("{}", c);
+                let c = cpu.mem.r8(addr) as u8;
+                addr = addr + 1;
+                if c != 0x24 {
+                    print!("{}", c as char);
                 }
                 else {
+                    print!("{}", c as char);
                     break;
                 }
             }

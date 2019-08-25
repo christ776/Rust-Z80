@@ -32,6 +32,8 @@ pub struct Z80 {
   pub pc: u16,
   pub sp: u16,
   pub hl: u16,
+  pub ix: u16,
+  pub iy: u16,
   pub mem: Memory,
   ///flags (f): sz-h-pnc
   pub flags: u8,
@@ -47,6 +49,8 @@ impl Z80 {
           e: 0,
           sp: 0,
           hl: 0,
+          ix: 0,
+          iy: 0,
           mem: Memory::new(),
           flags: 0x0
         }
@@ -127,9 +131,11 @@ impl Z80 {
     return (self.flags & 0b0000_0001) == 1;
   }
 
+  ///This stack usually starts at $0000 so as to place at the very end of memory
+  ///(the first push to the stack decrements the stack pointer causing it to wrap around to $FFFF).
   pub fn push(&mut self, val:u16) {
     let sp = self.sp;
-    let addr = sp - 2;
+    let addr = sp.wrapping_sub(2);
     self.set_sp(addr);
     self.mem.w16(addr, val);
   }
@@ -173,11 +179,16 @@ impl Z80 {
 
   pub fn set_de(&mut self, de: u16) {
     self.d = (de >> 8) as i8;
-    self.e = (de & 0x0f) as i8;
+    self.e = (de & 0x00ff) as i8;
   }
 
   pub fn af(&mut self) -> u16 {
-    ((self.a as u16) << 8 as u16 | self.flags as u16)
+    ((self.a as u8 as u16) << 8 as u16 | self.flags as u8 as u16)
+  }
+
+   pub fn set_af(&mut self, af: u16) {
+    self.a = (af >> 8) as i8;
+    self.flags = (af & 0x00ff) as u8;
   }
 
   pub fn set_hl(&mut self, hl: u16) {
@@ -185,16 +196,16 @@ impl Z80 {
   }
 
   pub fn bc(& mut self) -> u16 {
-    ((self.b as u16) << 8 as u16 | self.c as u16)
+    ((self.b as u8 as u16) << 8 as u16 | self.c as u8 as u16)
   }
 
   pub fn set_bc(&mut self, bc: u16) {
     self.b = (bc >> 8) as i8;
-    self.c = (bc & 0x0f) as i8;
+    self.c = (bc & 0x00ff) as i8;
   }
 
-   pub fn de(& mut self) -> u16 {
-    ((self.d as u16) << 8 as u16 | self.e as u16)
+  pub fn de(& mut self) -> u16 {
+    ((self.d as u8 as u16) << 8 as u16 | self.e as u8 as u16)
   }
 
   pub fn get_hl_h(&mut self) -> i8 {
@@ -217,15 +228,16 @@ impl Z80 {
 
   pub fn exec(&mut self) {
     let op = self.mem.r8(self.pc) as u8;
-    println!("{}", format!("{:#x}", op));
+    // println!("{}", format!("{:#x}", op));
     self.step();
     match op {
         0x00 => { self.nop(); },
         0x01 => { self.ld_bc_nn() },
         0x07 => {self.rlca()},
         0x09 | 0x19 => { self.add_hl_ss(op) },
+        0x12 => { self.ld_de_a()},
         0x20 => { self.jr_nz() },
-        0x11 | 0x22 | 0x21 => { self.ld_dd_nn(op) },
+        0x11 | 0x22 | 0x21 | 0x31 => { self.ld_dd_nn(op) },
         0x1d => { self.dec_r(op) },
         0x03 | 0x13 | 0x23 => {self.inc_ss(op)},
         0x2a => { self.ld_hl_nn() },
@@ -253,7 +265,25 @@ impl Z80 {
         0xc6 => { self.add_a_n(); },
         0xcd => { self.call() },
         0xd6 => {self.sub_n(op)},
-        0xe1 => {self.pop_qq()},
+        0xdd => {
+          let op = self.mem.r8(self.pc) as u8;
+          match op {
+            0x21 => { self.ld_ix_nn() },
+            0xE5 => { self.push_ix()},
+            0xE1 => { self.pop_ix()},
+            _ => {  panic!("unknown cp/m call {}!"); }
+          }
+        },
+        0xfd => {
+          let op = self.mem.r8(self.pc) as u8;
+          match op {
+            0x21 => { self.ld_iy_nn() },
+            0xE5 => { self.push_iy()},
+            0xE1 => { self.pop_iy()},
+            _ => {  panic!("unknown cp/m call {}!"); }
+          }
+        },
+        0xc1 | 0xd1 |0xf1 | 0xe1 => {self.pop_qq(op)},
         0xea | 0xe2 | 0xda | 0xc2 => { self.jp_cc_nn(op) },
         0xcc | 0xc4 | 0xec | 0xd4 | 0xdc | 0xe4| 0xf4 | 0xfc => { self.call_cc_nn(op) },
         0xf5 | 0xc5 | 0xd5 | 0xe5 => { self.push_qq(op) },
@@ -261,6 +291,51 @@ impl Z80 {
         0xf9 => { self.ld_sp_hl() },
         _ => {  panic!("unknown cp/m call {}!"); },
     }
+  }
+
+  pub fn pop_ix(&mut self) {
+    let data = self.mem.r16(self.sp);
+    self.ix = data;
+    self.set_sp(self.sp + 2);
+    self.step();
+  }
+
+  pub fn pop_iy(&mut self) {
+    let data = self.mem.r16(self.sp);
+    self.iy = data;
+    self.set_sp(self.sp + 2);
+    self.step();
+  }
+
+  pub fn push_ix(&mut self) {
+    self.push(self.ix);
+    self.step();
+  }
+
+  pub fn push_iy(&mut self) {
+    self.push(self.iy);
+    self.step();
+  }
+
+  pub fn ld_ix_nn(&mut self) {
+    let data = self.mem.r16(self.pc + 1);
+    self.ix = data;
+    self.step();
+    self.step();
+    self.step();
+  }
+
+  pub fn ld_iy_nn(&mut self) {
+    let data = self.mem.r16(self.pc + 1);
+    self.iy = data;
+    self.step();
+    self.step();
+    self.step();
+  }
+
+  pub fn ld_de_a(&mut self) {
+    let addr = self.de();
+    self.mem.w8(addr, self.a as u8);
   }
 
   pub fn rlca(&mut self) {
@@ -377,10 +452,25 @@ impl Z80 {
 
   }
 
-  pub fn pop_qq(&mut self) {
+  pub fn pop_qq(&mut self, op: u8) {
+    let sel = (op & 0b0011_0000) >> 4 as u8;
     let data = self.mem.r16(self.sp);
-    self.set_hl(data);
-    self.set_pc(self.pc + 2);
+    match sel {
+      0b00 => {
+          self.set_bc(data);
+      },
+      0b01 => {
+          self.set_de(data);
+      },
+      0b10 => {
+          self.set_hl(data);
+      },
+      0b11 => {
+          self.set_af(data);
+      }
+      _ => {  panic!("unknown cp/m call {}!"); },
+    }
+    self.set_sp(self.sp + 2);
   }
 
   pub fn ld_r_r(&mut self) {
@@ -622,8 +712,8 @@ impl Z80 {
               panic!("unimplemented instruction");
           }
       }
-    self.step();
   }
+
   pub fn call_cc_nn(&mut self, op: u8) {
     match op {
       0xcc => {
@@ -747,7 +837,7 @@ impl Z80 {
   pub fn call(&mut self) {
       let pc = self.pc();
       let addr = self.mem.r16(self.pc());
-      self.push(pc -1);
+      self.push(pc);
       self.set_pc(addr);
   }
 
@@ -832,10 +922,10 @@ impl Z80 {
   /// the hl register pair contains a137h.
   pub fn ld_hl_nn(&mut self) {
       let addr = self.pc();
-      let n = self.mem.r8(addr);
-      let nn = self.mem.r8(addr + 1);
-      self.set_hl_l(n);
-      self.set_hl_h(nn);
+      let nn = self.mem.r16(addr);
+      let val = self.mem.r16(nn);
+      self.set_hl(val);
+      self.step();
       self.step();
   }
 
@@ -853,10 +943,13 @@ impl Z80 {
           0x22 => {
               self.set_hl(nn);
           },
+          0x31 => {
+              self.set_sp(nn);
+          }
           _ => {  panic!("unknown cp/m call {}!"); }
       }
-    self.step();
-    self.step();
+      self.step();
+      self.step();
   }
 
   pub fn xor_r(&mut self, op: u8) {
@@ -1074,11 +1167,10 @@ impl Z80 {
   pub fn ld_bc_nn(&mut self) {
 
       let addr = self.pc();
-      let lowbyte = self.mem.r8(addr);
-      let highbyte = self.mem.r8(addr + 1);
-      self.set_c(lowbyte);
-      self.set_b(highbyte);
+      let data = self.mem.r16(addr);
+      self.set_bc(data);
 
+      self.step();
       self.step();
   }
 

@@ -251,5 +251,71 @@ mod test_opcodes {
         assert_eq!(0x0228, cpu.pc);
     }
 
+ #[test]
+    fn test_push_pop() {
+        let mut cpu = z80::Z80::new();
+        let prog = [
+            0x01, 0x34, 0x12,       // LD BC,0x1234
+            0x11, 0x78, 0x56,       // LD DE,0x5678
+            0x21, 0xBC, 0x9A,       // LD HL,0x9ABC
+            0x3E, 0xEF,             // LD A,0xEF
+            0xDD, 0x21, 0x45, 0x23, // LD IX,0x2345
+            0xFD, 0x21, 0x89, 0x67, // LD IY,0x6789
+            0x31, 0x00, 0x01,       // LD SP,0x0100
+            0xF5,                   // PUSH AF
+            0xC5,                   // PUSH BC
+            0xD5,                   // PUSH DE
+            0xE5,                   // PUSH HL
+            0xDD, 0xE5,             // PUSH IX
+            0xFD, 0xE5,             // PUSH IY
+            0xF1,                   // POP AF
+            0xC1,                   // POP BC
+            0xD1,                   // POP DE
+            0xE1,                   // POP HL
+            0xDD, 0xE1,             // POP IX
+            0xFD, 0xE1,             // POP IY
+        ];
+        cpu.mem.write(0x0000, &prog);
+
+        cpu.exec();
+        assert_eq!(0x1234, cpu.bc());
+        cpu.exec();
+        assert_eq!(0x5678, cpu.de());
+        cpu.exec();
+        assert_eq!(0x9ABC, cpu.hl);
+        cpu.exec();
+        assert_eq!(0xEF00, cpu.af());
+        cpu.exec();
+        assert_eq!(0x2345, cpu.ix);
+        cpu.exec();
+        assert_eq!(0x6789, cpu.iy);
+        cpu.exec();
+        assert_eq!(0x0100, cpu.sp);
+        cpu.exec();
+        assert_eq!(0xEF00, cpu.mem.r16(0x00FE)); assert_eq!(0x00FE, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x1234, cpu.mem.r16(0x00FC)); assert_eq!(0x00FC, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x5678, cpu.mem.r16(0x00FA)); assert_eq!(0x00FA, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x9ABC, cpu.mem.r16(0x00F8)); assert_eq!(0x00F8, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x2345, cpu.mem.r16(0x00F6)); assert_eq!(0x00F6, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x6789, cpu.mem.r16(0x00F4)); assert_eq!(0x00F4, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x6789, cpu.af()); assert_eq!(0x00F6, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x2345, cpu.bc()); assert_eq!(0x00F8, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x9ABC, cpu.de()); assert_eq!(0x00FA, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x5678, cpu.hl); assert_eq!(0x00FC, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x1234, cpu.ix); assert_eq!(0x00FE, cpu.sp);
+        cpu.exec();
+        assert_eq!(0xEF00, cpu.iy); assert_eq!(0x0100, cpu.sp);
+    }
+
 }
 
