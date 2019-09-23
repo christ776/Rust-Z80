@@ -38,12 +38,11 @@ fn cpm_bdos(cpu: &mut Z80) {
             let mut addr = cpu.de();
             loop {
                 let c = cpu.mem.r8(addr) as u8;
-                addr = addr + 1;
                 if c != 0x24 {
+                    addr = addr + 1;
                     print!("{}", c as char);
                 }
                 else {
-                    print!("{}", c as char);
                     break;
                 }
             }
@@ -52,4 +51,5 @@ fn cpm_bdos(cpu: &mut Z80) {
             panic!("Unknown CP/M call {}!", cpu.c);
         }
     }
+    cpu.ret();
 }

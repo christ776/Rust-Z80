@@ -228,7 +228,7 @@ impl Z80 {
 
   pub fn exec(&mut self) {
     let op = self.mem.r8(self.pc) as u8;
-    // println!("{}", format!("{:#x}", op));
+    println!("{}", format!("{:#x}", op));
     self.step();
     match op {
         0x00 => { self.nop(); },
@@ -238,7 +238,7 @@ impl Z80 {
         0x12 => { self.ld_de_a()},
         0x20 => { self.jr_nz() },
         0x11 | 0x22 | 0x21 | 0x31 => { self.ld_dd_nn(op) },
-        0x1d => { self.dec_r(op) },
+        0x5 | 0x1d => { self.dec_r(op) },
         0x03 | 0x13 | 0x23 => {self.inc_ss(op)},
         0x2a => { self.ld_hl_nn() },
         0x2b => { self.dec_ss() },
@@ -249,7 +249,7 @@ impl Z80 {
         0x0e | 0x06 | 0x16 | 0x1e | 0x3e | 0x26 | 0x2e => { self.ld_r_n(op)},
         0xb6 => { self.or_hl() },
         0xce => { self.adc_r () },
-        0x49 => { self.ld_r_r()},
+        0x6f | 0x49 => { self.ld_r_r(op)},
         0x4e | 0x46 | 0x56 | 0x5e | 0x66 | 0x6e | 0x7e => { self.ld_r_hl(op)},
         0x51 | 0x5c | 0x64 | 0x65 | 0x6c
         | 0x61 | 0x62 | 0x63 | 0x68  => { self.ld_hh(op)},
@@ -263,6 +263,7 @@ impl Z80 {
         0xc0 | 0xc8 | 0xd0 | 0xd8 | 0xe0 | 0xe8 | 0xf0 | 0xf8 => {self.ret_cc(op)},
         0xc3 => { self.jmp(); },
         0xc6 => { self.add_a_n(); },
+        0xc9 => {self.ret()},
         0xcd => { self.call() },
         0xd6 => {self.sub_n(op)},
         0xdd => {
@@ -344,6 +345,12 @@ impl Z80 {
     self.flags_set_n(false);
     self.flags_set_c((r & 0x01) == 0x01);
     self.set_a(r as i8);
+  }
+
+  pub fn ret(&mut self) {
+    let data = self.mem.r16(self.sp);
+    self.set_sp(self.sp.wrapping_add (2));
+    self.set_pc(data);
   }
 
   pub fn ret_cc(&mut self, op: u8) {
@@ -473,8 +480,17 @@ impl Z80 {
     self.set_sp(self.sp + 2);
   }
 
-  pub fn ld_r_r(&mut self) {
+  ///The contents of any register r' are loaded to any other register r.
+  ///r, r' identifies any of the registers A, B, C, D, E, H, or L
+  pub fn ld_r_r(&mut self, op: u8) {
+    let r = op & 0b0011_1000 >> 3;
+    let r_ = op & 0b0000_0111 >> 3;
+    match (r, r_) {
+      (0b000, 0b001) => {
 
+      },
+      _ => {  panic!("unknown cp/m call {}!"); },
+    }
   }
 
   pub fn inc_ss(&mut self, op: u8) {
@@ -630,7 +646,7 @@ impl Z80 {
       self.flags_set_z(r == 1);
       self.flags_set_n(true);
       self.flags_set_pe(r as u8 > 0x80);
-      self.step();
+      // self.step();
   }
 
   pub fn add_a_r( &mut self, op: u8) {
