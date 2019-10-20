@@ -317,5 +317,50 @@ mod test_opcodes {
         assert_eq!(0xEF00, cpu.iy); assert_eq!(0x0100, cpu.sp);
     }
 
+    #[test]
+    fn test_cp_r() {
+        let mut cpu = z80::Z80::new();
+        let prog = [
+            0x3E, 0x04,     // LD A,0x04
+            0x06, 0x05,     // LD B,0x05
+            0x0E, 0x03,     // LD C,0x03
+            0x16, 0xff,     // LD D,0xff
+            0x1E, 0xaa,     // LD E,0xaa
+            0x26, 0x80,     // LD H,0x80
+            0x2E, 0x7f,     // LD L,0x7f
+            0xBF,           // CP A
+            0xB8,           // CP B
+            0xB9,           // CP C
+            0xBA,           // CP D
+            0xBB,           // CP E
+            0xBC,           // CP H
+            0xBD,           // CP L
+            0xFE, 0x04,     // CP 0x04
+        ];
+        cpu.mem.write(0x0000, &prog);
+        cpu.exec();
+        assert_eq!(0x04, cpu.a);
+        cpu.exec();
+        assert_eq!(0x05, cpu.b);
+        cpu.exec();
+        assert_eq!(0x03, cpu.c);
+        cpu.exec();
+        assert_eq!(0xff, cpu.d as u8);
+        cpu.exec();
+        assert_eq!(0xaa, cpu.e as u8);
+        cpu.exec();
+        assert_eq!(0x80, cpu.get_hl_h() as u8);
+        cpu.exec();
+        assert_eq!(0x7f, cpu.get_hl_l());
+        cpu.exec();
+        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_z() | cpu.flags_get_n());
+        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
+        // assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_n());
+        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, HF|NF|CF));
+        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, HF|NF|CF));
+        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|VF|NF|CF));
+        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
+        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, ZF|NF));
+    }
 }
 

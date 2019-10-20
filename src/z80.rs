@@ -89,6 +89,10 @@ impl Z80 {
     }
   }
 
+  pub fn flags_get_n(&mut self) -> bool {
+    (self.flags & 0b0000_0010) >> 1 != 0
+  }
+
   ///c - carry - set if the result did not fit in the register
   pub fn flags_set_c(&mut self, val:bool) {
     if val {
@@ -241,15 +245,16 @@ impl Z80 {
         0x5 | 0x1d => { self.dec_r(op) },
         0x03 | 0x13 | 0x23 => {self.inc_ss(op)},
         0x2a => { self.ld_hl_nn() },
-        0x2b => { self.dec_ss() },
+        0x1b | 0x2b | 0x0b => { self.dec_ss(op) },
         0x2c | 0x24 | 0x3c => { self.inc_r(op) },
         0x2f => { self.cpl() },
+        0x32 => { self.ld_nn_a()},
         0x36 => { self.ld_hl_n()}
         0x3a => { self.ld_a_nn()},
         0x0e | 0x06 | 0x16 | 0x1e | 0x3e | 0x26 | 0x2e => { self.ld_r_n(op)},
         0xb6 => { self.or_hl() },
         0xce => { self.adc_r () },
-        0x6f | 0x49 => { self.ld_r_r(op)},
+        0x6f | 0x49 | 0x4f | 0x54 | 0x5d | 0x78 => { self.ld_r_r(op)},
         0x4e | 0x46 | 0x56 | 0x5e | 0x66 | 0x6e | 0x7e => { self.ld_r_hl(op)},
         0x51 | 0x5c | 0x64 | 0x65 | 0x6c
         | 0x61 | 0x62 | 0x63 | 0x68  => { self.ld_hh(op)},
@@ -258,6 +263,7 @@ impl Z80 {
         0x76 => { self.halt()},
         0x83 | 0x87 | 0x80 | 0x81 | 0x82 | 0x84 | 0x85 => { self.add_a_r(op)},
         0x97 => { self.sub_r(op) },
+        0xa1 => {self.and_r(op)},
         0xa9 => { self.xor_r(op) },
         0xb0 | 0xb4 => { self.or_r(op) },
         0xc0 | 0xc8 | 0xd0 | 0xd8 | 0xe0 | 0xe8 | 0xf0 | 0xf8 => {self.ret_cc(op)},
@@ -275,6 +281,8 @@ impl Z80 {
             _ => {  panic!("unknown cp/m call {}!"); }
           }
         },
+        0xeb => {self.ex_de_hl()},
+        0xed => {self.ed()},
         0xfd => {
           let op = self.mem.r8(self.pc) as u8;
           match op {
@@ -290,8 +298,134 @@ impl Z80 {
         0xf5 | 0xc5 | 0xd5 | 0xe5 => { self.push_qq(op) },
         0xff | 0xc7 | 0xdf => { self.rst_p(op) },
         0xf9 => { self.ld_sp_hl() },
+        0xfe => { self.cp_n()}
+        0xbf => { self.cp_r(op)}
         _ => {  panic!("unknown cp/m call {}!"); },
     }
+  }
+
+  pub fn and_r(&mut self, op: u8) {
+    let a = self.a;
+    let mut r = 0;
+    match op {
+      0xa1 => {
+        r = a & self.c;
+        self.set_a(r);
+      },
+       _ => {  panic!("unknown cp/m call {}!"); },
+    }
+
+    self.flags_set_n(false);
+    self.flags_set_z(r == 0);
+    self.flags_set_h(true);
+    self.flags_set_s(r < 1);
+    self.flags_set_pe(false);
+  }
+
+  pub fn cp_r(&mut self, op: u8) {
+    let mut s = 0;
+    match op {
+      0xbf => {
+        s = self.a;
+      },
+       _ => {  panic!("unknown cp/m call {}!"); },
+    }
+    let r = self.a - s;
+    self.flags_set_n(true);
+    self.flags_set_z(r == 0);
+    let mut borrow = false;
+    for mask in [0b000_0001, 0b0000_0010, 0b0000_0100, 0b0000_1000,
+                0b0001_0000, 0b0010_0000, 0b0100_0000, 0b1000_0000].iter() {
+
+      if (s as u8 & mask) > (self.b as u8 & mask) {
+        borrow = true;
+      }
+    }
+    self.flags_set_c(borrow);
+    self.flags_set_s(r < 1);
+    self.flags_set_pe(s > 0 && r > 0);
+    // self.flags_set_h((n & 0xF0) + (a & 0xF0) & 0x10 == 0x10);
+    self.step();
+  }
+
+  pub fn cp_n(&mut self) {
+    let s = self.mem.r8(self.pc);
+    let mut reg = 0;
+    match s {
+      0x01 => {
+        reg = self.c;
+      }
+      0x0 => {
+        reg = self.b;
+      },
+      _ => {  panic!("unknown cp/m call {}!"); },
+    }
+
+    let r = reg - s;
+    self.flags_set_n(true);
+    self.flags_set_z(r == 0);
+    let mut borrow = false;
+    for mask in [0b000_0001, 0b0000_0010, 0b0000_0100, 0b0000_1000,
+                0b0001_0000, 0b0010_0000, 0b0100_0000, 0b1000_0000].iter() {
+
+      if (s as u8 & mask) > (self.b as u8 & mask) {
+        borrow = true;
+      }
+    }
+    self.flags_set_c(borrow);
+    self.flags_set_s(r < 1);
+    self.flags_set_pe(s > 0 && r > 0);
+    // self.flags_set_h((n & 0xF0) + (a & 0xF0) & 0x10 == 0x10);
+    self.step();
+  }
+
+  /**
+   * Extended Instructions, see more at http://clrhome.org/table/
+   */
+  pub fn ed(&mut self) {
+    let op = self.mem.r8(self.pc) as u8;
+    match op {
+      0xb0 => {
+        loop {
+          let bc = self.ldir();
+          if bc == 0 { break; }
+          else {
+            let pc = self.pc();
+            self.set_pc(pc - 2);
+          }
+        }
+      },
+      _ => {  println!("op {:x}",op); panic!("unknown cp/m call {}!"); },
+    }
+  }
+
+  /** Transfers a byte of data from the memory location pointed to by hl to the memory location pointed to by de.
+      then hl and de are incremented and bc is decremented. If bc is not zero, this operation is repeated.
+      Interrupts can trigger while this instruction is processing.
+  */
+  pub fn ldir(&mut self) -> u16 {
+    let hl = self.hl;
+    let de = self.de();
+    let data = self.mem.r8(hl) as u8;
+    self.mem.w8(de, data);
+    self.set_hl(hl + 1);
+    self.set_de(de + 1);
+    let bc = self.bc();
+    self.set_bc(bc - 1);
+    return bc - 1;
+  }
+
+  pub fn ex_de_hl(&mut self) {
+    let de = self.de();
+    let hl = self.hl;
+    self.set_de(hl);
+    self.set_hl(de);
+  }
+
+  pub fn ld_nn_a(&mut self) {
+    let addr = self.mem.r16(self.sp);
+    self.mem.w8(addr, self.a as u8);
+    self.step();
   }
 
   pub fn pop_ix(&mut self) {
@@ -483,12 +617,25 @@ impl Z80 {
   ///The contents of any register r' are loaded to any other register r.
   ///r, r' identifies any of the registers A, B, C, D, E, H, or L
   pub fn ld_r_r(&mut self, op: u8) {
-    let r = op & 0b0011_1000 >> 3;
-    let r_ = op & 0b0000_0111 >> 3;
-    match (r, r_) {
-      (0b000, 0b001) => {
-
+    match op {
+      0x6f => {
+        let l = self.get_hl_l() as i8;
+        self.set_a(l);
       },
+      0x4f => {
+        self.set_c(self.a);
+      },
+      0x54 => {
+        let h = self.get_hl_h();
+        self.set_d(h);
+      },
+      0x5d => {
+        let l = self.get_hl_l() as i8;
+        self.set_e(l);
+      },
+      0x78 => {
+        self.set_a(self.b);
+      }
       _ => {  panic!("unknown cp/m call {}!"); },
     }
   }
@@ -1371,9 +1518,24 @@ impl Z80 {
       self.set_pc(data);
   }
 
-  fn dec_ss(&mut self) {
-    let hl = self.hl;
-    let r = hl - 1;
-    self.set_hl(r);
+  fn dec_ss(&mut self, op: u8) {
+    match op {
+      0x2b => {
+        let hl = self.hl;
+        let r = hl - 1;
+        self.set_hl(r);
+      },
+      0x0b => {
+        let bc = self.bc();
+        let r = bc - 1;
+        self.set_bc(r);
+      },
+      0x1b => {
+        let de = self.de();
+        let r = de - 1;
+        self.set_de(r);
+      },
+       _ => {  panic!("unknown cp/m call {}!"); }
+    }
   }
 }
