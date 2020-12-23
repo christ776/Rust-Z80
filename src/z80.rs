@@ -34,6 +34,7 @@ pub struct Z80 {
   pub hl: u16,
   pub ix: u16,
   pub iy: u16,
+  pub i: u8,
   pub mem: Memory,
   ///flags (f): sz-h-pnc
   pub flags: u8,
@@ -49,6 +50,7 @@ impl Z80 {
           e: 0,
           sp: 0,
           hl: 0,
+          i: 0,
           ix: 0,
           iy: 0,
           mem: Memory::new(),
@@ -187,7 +189,7 @@ impl Z80 {
   }
 
   pub fn af(&mut self) -> u16 {
-    ((self.a as u8 as u16) << 8 as u16 | self.flags as u8 as u16)
+    (self.a as u8 as u16) << 8 as u16 | self.flags as u8 as u16
   }
 
    pub fn set_af(&mut self, af: u16) {
@@ -235,7 +237,7 @@ impl Z80 {
     println!("{}", format!("{:#x}", op));
     self.step();
     match op {
-        0x00 => { self.nop(); },
+        0x00 | 0xf3 => { self.nop(); },
         0x01 => { self.ld_bc_nn() },
         0x07 => {self.rlca()},
         0x09 | 0x19 => { self.add_hl_ss(op) },
@@ -395,6 +397,10 @@ impl Z80 {
           }
         }
       },
+      0x47 => {
+        self.i = op;
+      }
+
       _ => {  println!("op {:x}",op); panic!("unknown cp/m call {}!"); },
     }
   }
@@ -557,7 +563,7 @@ impl Z80 {
   }
 
   pub fn sub_r(&mut self, op: u8) {
-    let mut res = 0;
+    let res = 0;
     let mut r = 0;
     match op {
       0x97 => {

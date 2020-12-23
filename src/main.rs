@@ -10,21 +10,32 @@ pub mod memory;
 pub use crate::z80::*;
 
 fn main() {
-    static ZEXDOC: &'static [u8] = include_bytes!("zexdoc.com");
-    let mut cpu = z80::Z80::new();
-    cpu.mem.write(0x0100, ZEXDOC);
-    cpu.set_sp(0xF000);
-    cpu.set_pc(0x0100);
+    match std::fs::read("./pacman/pacman.6e") {
+        Ok(bytes) => { 
+            let buffer: Vec<u8> = bytes;
+            let mut cpu = z80::Z80::new();
+            let temp: &[u8] = &buffer;
+            cpu.mem.write(0x0000, temp);
 
-    loop {
-        cpu.exec();
-        match cpu.pc() {
-            0x0005 => { cpm_bdos(&mut cpu); },
-            0x0000 => { break; },
-            _ => { },
+            loop {
+                cpu.exec();
+                match cpu.pc() {
+                    0x0000 => { break; },
+                    _ => { },
+                }
+            }
+        }
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::PermissionDenied {
+                eprintln!("please run again with appropriate permissions.");
+                return;
+            }
+            panic!("{}", e);
         }
     }
 }
+
+
 
 fn cpm_bdos(cpu: &mut Z80) {
         // get the function call id from register C
