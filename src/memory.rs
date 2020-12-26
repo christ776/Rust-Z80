@@ -3,19 +3,31 @@
 // mod memory;
 
 pub struct Memory {
-  work_ram: [u8; 65536]
+  // work_ram: [u8; 65536]
+  pub work_ram: Vec<u8>
 }
 
 impl Memory {
 
   pub fn new() -> Memory {
     Memory{
-      work_ram: [0; 65536]
+      work_ram: Vec::new()
     }
   }
 
   pub fn w8(&mut self, offset:u16, data:u8) {
-    self.work_ram[offset as usize] = data;
+    match offset {
+      0x5000..=0x5007 => 
+          println!("IO: accessed {} with {}", format!("{:#x}", offset), data),
+        0x50c0..=0x50ff => 
+          println!("Kicking the watchdog at {} with {}", format!("{:#x}", offset), data),
+        _ => self.work_ram[offset as usize] = data,
+    }
+    // if offset >= 0x5000 && offset <= 0x5007 {
+      
+    // } else {
+      
+    // }
   }
 
   pub fn write(&mut self, addr:u16, data: &[u8]) {

@@ -354,6 +354,8 @@ mod test_opcodes {
         assert_eq!(0x7f, cpu.get_hl_l());
         cpu.exec();
         assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_z() | cpu.flags_get_n());
+        cpu.exec();
+        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c() | );
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
         // assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_n());
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, HF|NF|CF));
