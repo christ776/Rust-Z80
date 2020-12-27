@@ -15,19 +15,29 @@ impl Memory {
     }
   }
 
+  pub fn new_64k() -> Memory {
+    Memory { 
+      work_ram: vec![0; 65536]
+    }
+  }
+
   pub fn w8(&mut self, offset:u16, data:u8) {
     match offset {
       0x5000..=0x5007 => 
-          println!("IO: accessed {} with {}", format!("{:#x}", offset), data),
-        0x50c0..=0x50ff => 
-          println!("Kicking the watchdog at {} with {}", format!("{:#x}", offset), data),
-        _ => self.work_ram[offset as usize] = data,
+        println!("IO: accessed {} with {}", format!("{:#x}", offset), data),
+      0x50c0..=0x50ff => 
+        println!("Kicking the watchdog at {} with {}", format!("{:#x}", offset), data),
+      0x5040..=0x505f => {    
+          println!("Sound tests at {} with {}", format!("{:#x}", offset), data)
+      },
+      0x5060..=0x506f => {    
+        println!("Sprite coordinates at {} with {}", format!("{:#x}", offset), data)
+      },
+      0x5070..=0x50bf => {    
+        println!("??? {} with {}", format!("{:#x}", offset), data)
+      },
+      _ => self.work_ram[offset as usize] = data,
     }
-    // if offset >= 0x5000 && offset <= 0x5007 {
-      
-    // } else {
-      
-    // }
   }
 
   pub fn write(&mut self, addr:u16, data: &[u8]) {

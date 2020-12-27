@@ -1,11 +1,12 @@
 #[allow(unused_imports)]
 
 mod test_opcodes {
-  use Z80::z80;
+  use Z80::memory::Memory;
+use Z80::z80;
 
   #[test]
   fn test_ld_ihl_n() {
-      let mut cpu = z80::Z80::new();
+      let mut cpu = z80::Z80::new(Memory::new_64k());
       cpu.set_sp(0xFFFF);
       cpu.set_pc(0x0000);
       let prog = [
@@ -27,7 +28,7 @@ mod test_opcodes {
 
   #[test]
   fn test_ld_ihl() {
-      let mut cpu = z80::Z80::new();
+      let mut cpu = z80::Z80::new(Memory::new_64k());
       let prog = [
           0x77,       // LD (HL),A
           0x46,       // LD B,(HL)
@@ -57,7 +58,7 @@ mod test_opcodes {
 
       #[test]
     fn test_add_r() {
-        let mut cpu = z80::Z80::new();
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x3E, 0x0F,     // LD A,0x0F
             0x87,           // ADD A,A
@@ -113,7 +114,7 @@ mod test_opcodes {
 
     #[test]
     fn test_add_r_2() {
-        let mut cpu = z80::Z80::new();
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x3E, 0x0F,     // LD A,0x0F
             0x87,           // ADD A,A
@@ -169,7 +170,7 @@ mod test_opcodes {
 
     #[test]
     fn test_call_cc_ret_cc() {
-        let mut cpu = z80::Z80::new();
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
 			0x97,               //      SUB A
 			0xC4, 0x29, 0x02,   //      CALL NZ,l0
@@ -253,7 +254,7 @@ mod test_opcodes {
 
  #[test]
     fn test_push_pop() {
-        let mut cpu = z80::Z80::new();
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x01, 0x34, 0x12,       // LD BC,0x1234
             0x11, 0x78, 0x56,       // LD DE,0x5678
@@ -319,7 +320,7 @@ mod test_opcodes {
 
     #[test]
     fn test_cp_r() {
-        let mut cpu = z80::Z80::new();
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x3E, 0x04,     // LD A,0x04
             0x06, 0x05,     // LD B,0x05
@@ -355,7 +356,7 @@ mod test_opcodes {
         cpu.exec();
         assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_z() | cpu.flags_get_n());
         cpu.exec();
-        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c() | );
+        // assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c() | );
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
         // assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_n());
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, HF|NF|CF));

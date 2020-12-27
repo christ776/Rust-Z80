@@ -241,11 +241,11 @@ impl Z80 {
         0x01 => { self.ld_bc_nn() },
         0x07 => {self.rlca()},
         0x09 | 0x19 => { self.add_hl_ss(op) },
-        0x10 => { self.djnz(op) },
+        0x10 => { self.djnz() },
         0x12 => { self.ld_de_a()},
         0x20 => { self.jr_nz() },
         0x11 | 0x22 | 0x21 | 0x31 => { self.ld_dd_nn(op) },
-        0x5 | 0x1d => { self.dec_r(op) },
+        0x5 | 0x0d | 0x1d => { self.dec_r(op) },
         0x03 | 0x13 | 0x23 => {self.inc_ss(op)},
         0x2a => { self.ld_hl_nn() },
         0x1b | 0x2b | 0x0b => { self.dec_ss(op) },
@@ -274,6 +274,7 @@ impl Z80 {
         0xc6 => { self.add_a_n(); },
         0xc9 => {self.ret()},
         0xcd => { self.call() },
+        0xd3 => { self.out(op) },
         0xd6 => {self.sub_n(op)},
         0xdd => {
           let op = self.mem.r8(self.pc) as u8;
@@ -299,14 +300,26 @@ impl Z80 {
         0xea | 0xe2 | 0xda | 0xc2 => { self.jp_cc_nn(op) },
         0xcc | 0xc4 | 0xec | 0xd4 | 0xdc | 0xe4| 0xf4 | 0xfc => { self.call_cc_nn(op) },
         0xf5 | 0xc5 | 0xd5 | 0xe5 => { self.push_qq(op) },
-        0xff | 0xc7 | 0xdf => { self.rst_p(op) },
+        0xff | 0xc7 | 0xcf | 0xdf => { self.rst_p(op) },
         0xf9 => { self.ld_sp_hl() },
+        0xfb => { self.ei() },
         0xfe => { self.cp_n()}
         0xbf => { self.cp_r(op)}
         _ => {  panic!("unknown cp/m call {}!"); },
     }
   }
 
+  /* I/O Instructions */
+  pub fn out(&mut self, op: u8) {
+    // TODO
+    self.step();
+  }
+
+  pub fn ei(&mut self) {
+    //TODO
+    self.step();
+  }
+ 
   pub fn and_r(&mut self, op: u8) {
     let a = self.a;
     let mut r = 0;
@@ -401,7 +414,10 @@ impl Z80 {
       0x47 => {
         self.i = op;
         self.step();
-      }
+      },
+      0x5e => {
+        self.step();
+      },
 
       _ => {  println!("op {:x}",op); panic!("unknown cp/m call {}!"); },
     }
@@ -1210,6 +1226,9 @@ impl Z80 {
           },
           0xdf => {
             self.set_pc(0x0018);
+          },
+          0xcf => {
+            self.set_pc(0x0008);
           }
           _ => {
               println!("unimplemented instruction");
@@ -1328,8 +1347,12 @@ impl Z80 {
           }
           0x2c => {
               r = self.get_hl_l();
-              incr = r + 1;
-              self.set_hl_l(incr);
+              if r == 127 {
+                self.set_hl_l(0);
+              } else {
+                incr = r + 1;
+                self.set_hl_l(incr);
+              }
           },
           0x3c => {
               r = self.a;
@@ -1364,12 +1387,13 @@ impl Z80 {
       if !self.flags_get_z() {
           let addr = self.pc();
           let offset = self.mem.r8(addr);
-          let displacement = addr.wrapping_add(offset as u16);
+          let displacement = (addr -1).wrapping_add(offset as u16);
           self.set_pc(displacement);
+          self.step();
+          self.step();
       } else {
-
+        self.step();
       }
-      self.step();
   }
 
   pub fn ld_hh(&mut self, op: u8) {
@@ -1541,17 +1565,20 @@ impl Z80 {
       self.set_pc(data);
   }
 
-  pub fn djnz(&mut self, op: u8) {
+  pub fn djnz(&mut self) {
+    let pc = self.pc();
     let b = self.b;
     let displacement = self.mem.r8(self.pc()) as u16;
-    let r = b - 1;
+    let r = b.wrapping_sub(1);
     if r == 0 {
       self.step();
     } else {
-      let pc = self.pc();
-      self.set_pc(pc.wrapping_add(displacement));
+      self.set_pc(pc - 1);
+      self.set_pc(pc.wrapping_add(displacement) as u16);
+      self.step();
+      // self.step();
     }
-    self.set_b(b - 1);
+    self.set_b(r);
   }
 
   fn dec_ss(&mut self, op: u8) {

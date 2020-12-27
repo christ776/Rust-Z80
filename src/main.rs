@@ -20,9 +20,11 @@ fn main () {
     load_rom_mut(&String::from("./pacman/pacman.6h"), &mut mem.work_ram);
     load_rom_mut(&String::from("./pacman/pacman.6j"), &mut mem.work_ram);
     // Working RAM ... it's a bit of a hack for now
+    let mut video_ram:Vec<u8> = vec![0; 2048];
+    &mem.work_ram.append(&mut video_ram);
     let mut working_ram:Vec<u8> = vec![0; 2048];
     &mem.work_ram.append(&mut working_ram);
-
+    println!("Memory size is {}", format!("{:#x}", mem.work_ram.len()));
     let mut cpu = z80::Z80::new(mem);
     loop {
         cpu.exec();
