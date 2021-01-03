@@ -252,6 +252,35 @@ use Z80::z80;
         assert_eq!(0x0228, cpu.pc);
     }
 
+    #[test]
+    fn test_call_ret() {
+        let mut cpu = z80::Z80::new(Memory::new_64k());
+        cpu.set_sp(0xFFFF);
+        let prog = [
+            0xCD, 0x0A, 0x02,   // CALL l0
+            0xCD, 0x0A, 0x02,   // CALL l0
+            0xC9,               // l0: RET
+        ];
+        cpu.mem.write(0x0204, &prog);
+        cpu.set_pc(0x0204);
+        cpu.exec();
+        assert_eq!(0x020A, cpu.pc);
+        // cpu.exec();
+        assert_eq!(0xFFFD, cpu.sp);
+        println!("Memory contents at 0xFFFD {}", format!("{:#x}", cpu.mem.r16(0xFFFD)));
+        assert_eq!(0x0207, cpu.mem.r16(0xFFFD));
+        cpu.exec();
+        assert_eq!(0x0207, cpu.pc);
+        assert_eq!(0xFFFF, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x020A, cpu.pc);
+        assert_eq!(0xFFFD, cpu.sp);
+        cpu.exec();
+        assert_eq!(0x020A, cpu.mem.r16(0xFFFD));
+        assert_eq!(0x020A, cpu.pc);
+        assert_eq!(0xFFFF, cpu.sp);
+    }
+
  #[test]
     fn test_push_pop() {
         let mut cpu = z80::Z80::new(Memory::new_64k());
@@ -355,7 +384,7 @@ use Z80::z80;
         assert_eq!(0x7f, cpu.get_hl_l());
         cpu.exec();
         assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_z() | cpu.flags_get_n());
-        cpu.exec();
+        // cpu.exec();
         // assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c() | );
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
         // assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_n());
@@ -365,5 +394,74 @@ use Z80::z80;
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, ZF|NF));
     }
-}
 
+    #[test]
+    fn test_jr_cc() {
+        let mut cpu = z80::Z80::new(Memory::new_64k());
+        let prog = [
+            0x97,           //      SUB A
+            0x20, 0x03,     //      JR NZ l0
+            0x28, 0x01,     //      JR Z, l0
+            0x00,           //      NOP
+            0xC6, 0x01,     // l0:  ADD A,0x01
+            0x28, 0x03,     //      JR Z, l1
+            0x20, 0x01,     //      HR NZ, l1
+            0x00,           //      NOP
+            0xD6, 0x03,     // l1:  SUB 0x03
+            0x30, 0x03,     //      JR NC, l2
+            0x38, 0x01,     //      JR C, l2
+            0x00,           //      NOP
+            0x00,           //      NOP
+        ];
+        cpu.mem.write(0x204, &prog);
+        cpu.set_pc(0x0204);
+        cpu.exec();
+        assert_eq!(0x00, cpu.a);
+        cpu.exec();
+        assert_eq!(0x0207, cpu.pc());
+        cpu.exec();
+        assert_eq!(0x020A, cpu.pc());
+        cpu.exec();
+        assert_eq!(0x01, cpu.a);
+        cpu.exec();
+        assert_eq!(0x020E, cpu.pc());
+        cpu.exec();
+        assert_eq!(0x0211, cpu.pc());
+        cpu.exec();
+        assert_eq!(0xFE, cpu.a as u8);
+        cpu.exec();
+        assert_eq!(0x0215, cpu.pc());
+        cpu.exec();
+        assert_eq!(0x0218, cpu.pc());
+    }
+
+    #[test]
+    fn test_djnz() {
+        let mut cpu = z80::Z80::new(Memory::new_64k());
+        let prog = [
+            0x06, 0x03,     // LD BC,0x03
+            0x97,           // SUB A
+            0x3C,           // loop: INC A
+            0x10, 0xFD,     // DJNZ loop
+            0x00,           // NOP
+        ];
+        cpu.mem.write(0x0204, &prog);
+        cpu.set_pc(0x0204);
+        cpu.exec();
+        assert_eq!(0x03, cpu.b);
+        cpu.exec();
+        assert_eq!(0x00, cpu.a);
+        cpu.exec();
+        assert_eq!(0x01, cpu.a);
+        cpu.exec();
+        assert_eq!(0x02, cpu.b); assert_eq!(0x0207, cpu.pc());
+        cpu.exec();
+        assert_eq!(0x02, cpu.a);
+        cpu.exec();
+        assert_eq!(0x01, cpu.b); assert_eq!(0x0207, cpu.pc());
+        cpu.exec();
+        assert_eq!(0x03, cpu.a);
+        cpu.exec();
+        assert_eq!(0x00, cpu.b); assert_eq!(0x020A, cpu.pc());
+    }
+}

@@ -21,6 +21,12 @@ impl Memory {
     }
   }
 
+  pub fn new_1k() -> Memory {
+    Memory { 
+      work_ram: vec![0; 1024]
+    }
+  }
+
   pub fn w8(&mut self, offset:u16, data:u8) {
     match offset {
       0x5000..=0x5007 => 
@@ -62,6 +68,6 @@ impl Memory {
   }
 
   pub fn r8(&self, addr: u16) -> i8 {
-     self.work_ram[addr as usize] as i8
+    self.work_ram[addr as usize] as i8
   }
 }
