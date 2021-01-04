@@ -232,7 +232,7 @@ impl Z80 {
     self.hl = (h as u16) << 8 | l;
   }
 
-  pub fn exec(&mut self) {
+  pub fn exec(&mut self) -> u8 {
     let op = self.mem.r8(self.pc) as u8;
     println!("Addr: {} , op:{}", format!("{:#x}", self.pc()), format!("{:#x}", op));
     print!("--- Registers HL={} --- ", format!("{:#x}", self.hl));
@@ -317,6 +317,8 @@ impl Z80 {
         0xbf => { self.cp_r(op)}
         _ => {  panic!("unknown cp/m call {}!"); },
     }
+
+    6
   }
 
   /* I/O Instructions */

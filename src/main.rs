@@ -7,24 +7,11 @@
 pub mod z80;
 pub mod memory;
 
+use std::time::Duration;
+use std::time::Instant;
 pub use crate::z80::*;
 
-// fn main() {
-//     static ZEXDOC: &'static [u8] = include_bytes!("zexall.com");
-//     let mut cpu = z80::Z80::new(Memory::new_64k());
-//     cpu.mem.write(0x0100, ZEXDOC);
-//     cpu.set_sp(0xF000);
-//     cpu.set_pc(0x0100);
-
-//     loop {
-//         cpu.exec();
-//         match cpu.pc() {
-//             0x0005 => { cpm_bdos(&mut cpu); },
-//             0x0000 => { break; },
-//             _ => { },
-//         }
-//     }
-// }
+const CPU_FREQ:u64 = 3_072_000;
 
 fn main () {
 
@@ -43,12 +30,23 @@ fn main () {
     &mem.work_ram.append(&mut working_ram);
     println!("Memory size is {}", format!("{:#x}", mem.work_ram.len()));
     let mut cpu = z80::Z80::new(mem);
+
+    // For throttling to 60 FPS
+    let mut timer = Instant::now();
+    let mut fps_timer = Instant::now();
+    let mut fps = 0;
+    let cycles_per_frame = CPU_FREQ / 60;
+    let mut available_cycles = cycles_per_frame;
+
     loop {
-        cpu.exec();
-        // match cpu.pc() {
-        //     0x0000 => { break; },
-        //     _ => { },
-        // }
+        let cycles = cpu.exec();
+        if available_cycles < cycles as u64 {
+            // if we're running faster than 60Hz, kill time
+            ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 60));
+        } else {
+            available_cycles -= cycles as u64;
+        }
+       
     }
 }
 
