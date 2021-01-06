@@ -1,0 +1,80 @@
+
+use crate::pixel::Pixel;
+
+pub struct TileDecoder {
+
+}
+
+const WIDTH: usize = 224;
+
+impl TileDecoder {
+
+  /// Since screen is made up of 224 x 288 pixels (rotated)
+  /// and each tile is a 8x8 pixel 4-color square, we could then split the ROM contents
+  /// into a 28 x 36 tileset.
+  /// Also, given that each tile is a 8x8 pixel and each pixel has 2-bit color depth, then each
+  /// tile takes 8x8 pixels --> 64 pixels at 2bits each = 128bit --> 16bytes per tile
+  /// |--------
+  /// | 4 | 4 |
+  /// |--------
+  /// | 4 | 4 |
+  /// |--------
+  pub fn decode_tile(offset: usize, tile_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
+    match &tile_rom.get(offset ..offset + 16) {
+      Some(tile) => TileDecoder::to_pixel_buffer(offset, tile, pixel_buffer),
+      None => print!("Error?")
+    }
+  }
+
+  fn to_pixel_buffer(offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>) {
+
+    for r in 0..16 {
+      let x = r % WIDTH as usize;
+      let y = r / WIDTH as usize;
+      
+       // Upper Eight columns
+      for column in 0..8 {
+        //We need four bytes per 4 pixels , because each pixel has a 8-bit color depth
+        // thus having 8 bit planes for 4 pixels
+
+        //Get lowest four bits, each bit corresponding to a different pixel, plane 0
+        let low_nibble = tile[column + 8] & 0x0F;
+        //Get hightest four bits, each bit corresponding to a different pixel, plane 1
+        let high_nibble = (tile[column + 8] >> 4) & 0x0F;
+
+        for (i, pixel) in [ 
+          Pixel::new(low_nibble & 0x01, high_nibble & 0x01),
+          Pixel::new((low_nibble & 0x02) >> 1, (high_nibble & 0x02) >> 1),
+          Pixel::new((low_nibble & 0x04) >> 2, (high_nibble & 0x04) >> 2),
+          Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
+        ].iter().enumerate() {
+            let raw_data = pixel.to_rgba();
+            let pos = (i + 4) * WIDTH + column;
+            pixel_buffer[pos] = raw_data;
+        }
+      }
+
+       // Lower Eight columns
+      for column in 0..8 {
+        //We need four bytes per 4 pixels , because each pixel has a 8-bit color depth
+        // thus having 8 bit planes for 4 pixels
+
+        //Get lowest four bits, each bit corresponding to a different pixel, plane 0
+        let low_nibble = tile[column] & 0x0F;
+        //Get hightest four bits, each bit corresponding to a different pixel, plane 1
+        let high_nibble = (tile[column] >> 4) & 0x0F;
+
+        for (i, pixel) in [ 
+          Pixel::new(low_nibble & 0x01, high_nibble & 0x01),
+          Pixel::new((low_nibble & 0x02) >> 1, (high_nibble & 0x02) >> 1),
+          Pixel::new((low_nibble & 0x04) >> 2, (high_nibble & 0x04) >> 2),
+          Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
+        ].iter().enumerate() {
+            let raw_data = pixel.to_rgba();
+            let pos = i * WIDTH + column;
+            pixel_buffer[pos] = raw_data;
+        }
+      }
+    }
+  }
+}

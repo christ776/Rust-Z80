@@ -1,48 +1,58 @@
-// extern crate memory;
-
-// mod memory;
+use crate::gfx_decoder::TileDecoder;
 
 pub struct Memory {
-  // work_ram: [u8; 65536]
-  pub work_ram: Vec<u8>
+  pub work_ram: Vec<u8>,
+  pub tile_rom: Vec<u8>,
+  pub pixel_buffer: Vec<u32>
 }
 
 impl Memory {
 
   pub fn new() -> Memory {
     Memory{
-      work_ram: Vec::new()
+      work_ram: Vec::new(),
+      tile_rom: Vec::new(),
+      pixel_buffer: Vec::new()
     }
   }
 
   pub fn new_64k() -> Memory {
     Memory { 
-      work_ram: vec![0; 65536]
+      work_ram: vec![0; 65536],
+      tile_rom: vec![0; 65536],
+      pixel_buffer: vec![0]
     }
   }
 
   pub fn new_1k() -> Memory {
     Memory { 
-      work_ram: vec![0; 1024]
+      work_ram: vec![0; 1024],
+      tile_rom: vec![0; 1024],
+      pixel_buffer: vec![0]
     }
   }
 
-  pub fn w8(&mut self, offset:u16, data:u8) {
-    match offset {
+  pub fn w8(&mut self, address:u16, data:u8) {
+    match address {
+      0x4000..=0x43de => {
+        // println!("Video RAM: accessed {} with {}", format!("{:#x}", address), data);
+        let offset = address - 0x4000;
+        TileDecoder::decode_tile(offset as usize, &self.tile_rom, &mut self.pixel_buffer);
+      },
       0x5000..=0x5007 => 
-        println!("IO: accessed {} with {}", format!("{:#x}", offset), data),
+        println!("IO: accessed {} with {}", format!("{:#x}", address), data),
       0x50c0..=0x50ff => 
-        println!("Kicking the watchdog at {} with {}", format!("{:#x}", offset), data),
+        println!("Kicking the watchdog at {} with {}", format!("{:#x}", address), data),
       0x5040..=0x505f => {    
-          println!("Sound tests at {} with {}", format!("{:#x}", offset), data)
+          println!("Sound tests at {} with {}", format!("{:#x}", address), data)
       },
       0x5060..=0x506f => {    
-        println!("Sprite coordinates at {} with {}", format!("{:#x}", offset), data)
+        println!("Sprite coordinates at {} with {}", format!("{:#x}", address), data)
       },
       0x5070..=0x50bf => {    
-        println!("??? {} with {}", format!("{:#x}", offset), data)
+        println!("??? {} with {}", format!("{:#x}", address), data)
       },
-      _ => self.work_ram[offset as usize] = data,
+      _ => self.work_ram[address as usize] = data,
     }
   }
 

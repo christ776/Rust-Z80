@@ -21,7 +21,6 @@
 
 
 pub use crate:: memory::Memory;
-// use register;
 
 pub struct Z80 {
   pub a: i8,
@@ -234,9 +233,8 @@ impl Z80 {
 
   pub fn exec(&mut self) -> u8 {
     let op = self.mem.r8(self.pc) as u8;
-    println!("Addr: {} , op:{}", format!("{:#x}", self.pc()), format!("{:#x}", op));
-    print!("--- Registers HL={} --- ", format!("{:#x}", self.hl));
-    // print!("--- Registers A ={} --- ", format!("{:#x}", self.a));
+    // println!("Addr: {} , op:{}", format!("{:#x}", self.pc()), format!("{:#x}", op));
+    // print!("--- Registers HL={} --- ", format!("{:#x}", self.hl));
     // println!("Memory contents of (HL): {}", format!("{:#x}", self.mem.r8(self.hl)));
     self.step();
     match op {

@@ -4,4 +4,13 @@ version = "0.1.0"
 authors = ["Christian De Martino <chrisddm@gmail.com>"]
 edition = "2018"
 
+[features]
+optimize = ["log/release_max_level_warn"]
+default = ["optimize"]
+
 [dependencies]
+pixels = "0.2.0"
+winit = "0.24.0"
+env_logger = "0.7.1"
+log = "0.4.8"
+winit_input_helper = "0.6.0"
