@@ -84,30 +84,30 @@ fn main () -> Result<(), Error> {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
+        }
 
-            // Handle input events
-            gui.handle_event(&window, &event);
-            if input.update(&event) {
-                // Close events
-                if input.key_pressed(VirtualKeyCode::Escape) || input.quit() {
-                    *control_flow = ControlFlow::Exit;
-                    return;
-                }
-
-                // Resize the window
-                if let Some(size) = input.window_resized() {
-                    pixels.resize(size.width, size.height);
-                }
-
-                // Update internal state and request a redraw
-                let now = Instant::now();
-                let dt = now.duration_since(start_time);
-                start_time = now;
-        
-                // Update the game logic and request redraw
-                world.update(&dt);
-                window.request_redraw();
+        // Handle input events
+        gui.handle_event(&window, &event);
+        if input.update(&event) {
+            // Close events
+            if input.key_pressed(VirtualKeyCode::Escape) || input.quit() {
+                *control_flow = ControlFlow::Exit;
+                return;
             }
+
+            // Resize the window
+            if let Some(size) = input.window_resized() {
+                pixels.resize(size.width, size.height);
+            }
+
+            // Update internal state and request a redraw
+            let now = Instant::now();
+            let dt = now.duration_since(start_time);
+            start_time = now;
+    
+            // Update the game logic and request redraw
+            world.update(&dt);
+            window.request_redraw();
         }
 
         // Handle input events
@@ -191,13 +191,13 @@ impl World {
         // Advance the timer by the delta time
         self.dt += *dt;
 
-        //Trigger VBLANK interrupt? 
-        // while self.dt >= one_frame {
-        //     self.dt -= one_frame / 500;
-        //     self.cpu.exec();
-        // }
+        // Trigger VBLANK interrupt? 
+        while self.dt >= one_frame {
+            self.dt -= one_frame / 500;
+            self.cpu.exec();
+        }
 
-        // self.cpu.vblank();
+        self.cpu.vblank();
     }
     
     fn load_rom_mut(rom_name: &String, mem: &mut Vec<u8>) {
