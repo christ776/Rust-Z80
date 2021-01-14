@@ -383,11 +383,14 @@ use Z80::z80;
         cpu.exec();
         assert_eq!(0x7f, cpu.get_hl_l());
         cpu.exec();
-        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_z() | cpu.flags_get_n());
-        // cpu.exec();
-        // assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c() | );
+        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_z() && cpu.flags_get_n());
+        cpu.exec();
+        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c() && cpu.flags_get_s() && cpu.flags_get_n());
+        cpu.exec();
+        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_n());
+        cpu.exec();
+        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c());
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
-        // assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_n());
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, HF|NF|CF));
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, HF|NF|CF));
         // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|VF|NF|CF));
@@ -464,4 +467,65 @@ use Z80::z80;
         cpu.exec();
         assert_eq!(0x00, cpu.b); assert_eq!(0x020A, cpu.pc());
     }
+
+    #[test]
+    fn test_inc_dec_r() {
+        let mut cpu = z80::Z80::new(Memory::new_64k());
+        let prog = [
+            0x3e, 0x00,         // LD A,0x00
+            0x06, 0xFF,         // LD B,0xFF
+            0x0e, 0x0F,         // LD C,0x0F
+            0x16, 0x0E,         // LD D,0x0E
+            0x1E, 0x7F,         // LD E,0x7F
+            0x26, 0x3E,         // LD H,0x3E
+            0x2E, 0x23,         // LD L,0x23
+            0x3C,               // INC A
+            0x3D,               // DEC A
+            0x04,               // INC B
+            0x05,               // DEC B
+            0x0C,               // INC C
+            0x0D,               // DEC C
+            0x14,               // INC D
+            0x15,               // DEC D
+            0xFE, 0x01,         // CP 0x01  // set carry flag (should be preserved)
+            0x1C,               // INC E
+            0x1D,               // DEC E
+            0x24,               // INC H
+            0x25,               // DEC H
+            0x2C,               // INC L
+            0x2D,               // DEC L
+        ];
+        cpu.mem.write(0x0000, &prog);
+
+        for _ in 0..8 {
+            cpu.exec();
+        }
+
+        assert_eq!(0x01, cpu.a); assert!(cpu.flags == 0);
+        cpu.exec();
+        assert_eq!(0x00, cpu.a); assert!(cpu.flags_get_z() && cpu.flags_get_n());
+        cpu.exec();
+        assert_eq!(0x00, cpu.b); assert!(cpu.flags_get_z() & cpu.flags_get_h());
+        cpu.exec();
+        assert_eq!(0xFF, cpu.b as u8); assert!(cpu.flags_get_n() & cpu.flags_get_h() & cpu.flags_get_s());
+        cpu.exec();
+        assert_eq!(0x10, cpu.c); assert!(cpu.flags_get_h());
+        cpu.exec();
+        assert_eq!(0x0F, cpu.c); assert!(cpu.flags_get_n() & cpu.flags_get_h());
+        cpu.exec();
+        assert_eq!(0x0F, cpu.d); assert!(cpu.flags == 0);
+        cpu.exec();
+        assert_eq!(0x0E, cpu.d); assert!(cpu.flags_get_n());
+        cpu.exec();
+        assert_eq!(0x00, cpu.a); 
+        assert!(cpu.flags_get_n() & cpu.flags_get_h() & cpu.flags_get_s() & cpu.flags_get_c());
+        // assert_eq!(0x80, cpu.e); assert!(flags(&cpu, SF|HF|VF|CF));
+        // assert_eq!(0x7F, cpu.e); assert!(flags(&cpu, HF|VF|NF|CF));
+        // assert_eq!(0x3F, cpu.h); assert!(flags(&cpu, CF));
+        // assert_eq!(0x3E, cpu.h); assert!(flags(&cpu, NF|CF));
+        // assert_eq!(0x24, cpu.l); assert!(flags(&cpu, CF));
+        // assert_eq!(0x23, cpu.l); assert!(flags(&cpu, NF|CF));        
+    }
+
+    
 }

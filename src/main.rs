@@ -28,19 +28,42 @@ use winit_input_helper::WinitInputHelper;
 const WIDTH: usize = 224;
 const HEIGHT: usize = 288;
 
+const TARGET_FPS: u64 = 60;
+
 
 fn main () -> Result<(), Error> {
     let event_loop = EventLoop::new();
-    let mut input = WinitInputHelper::new();
+    let _input = WinitInputHelper::new();
     let (window, width, height, mut _hidpi_factor) = create_window("PacMan in Rust", &event_loop);
     let surface_texture = SurfaceTexture::new(width, height, &window);
     let mut pixels = Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture)?;
-    let mut time = Instant::now();
+    let mut start_time = Instant::now();
     let mut world = World::new();
+    let mut input = WinitInputHelper::new();
+
     world.emulator_init();
+
+    // Set up Dear ImGui
 
     event_loop.run(move |event, _, control_flow| {
         // The one and only event that winit_input_helper doesn't have for us...
+        if let Event::MainEventsCleared = event {
+            // Application update code.
+
+            // Queue a RedrawRequested event.
+            //
+            // You only need to call this if you've determined that you need to redraw, in
+            // applications which do not always need to. Applications that redraw continuously
+            // can just render here instead.
+            let now = Instant::now();
+            let dt = now.duration_since(start_time);
+            start_time = now;
+    
+            // Update the game logic and request redraw
+            world.update(&dt);
+            window.request_redraw();
+        }
+
         if let Event::RedrawRequested(_) = event {
             world.draw(pixels.get_frame());
             if pixels
@@ -53,10 +76,23 @@ fn main () -> Result<(), Error> {
             }
         }
 
+        // Handle input events
+       
+        // let elapsed_time = Instant::now().duration_since(start_time).as_millis() as u64;
+
+        // let wait_millis = match 1000 / TARGET_FPS >= elapsed_time {
+        //     true => 1000 / TARGET_FPS - elapsed_time,
+        //     false => 0
+        // };
+        // let new_inst = start_time + std::time::Duration::from_millis(wait_millis);
+        // *control_flow = ControlFlow::WaitUntil(new_inst);
+        
+
+
         // Get a new delta time.
         let now = Instant::now();
-        let dt = now.duration_since(time);
-        time = now;
+        let dt = now.duration_since(start_time);
+        start_time = now;
 
         // Update the game logic and request redraw
         world.update(&dt);
@@ -107,19 +143,6 @@ impl World {
         mem.pixel_buffer = vec![0; 64512];
 
         self.cpu = z80::Z80::new(mem);
-        // For throttling to 60 FPS
-        // let cycles_per_frame = CPU_FREQ / 60;
-        // let mut available_cycles = cycles_per_frame;
-
-        // 'running: loop {
-        //     let cycles = cpu.exec();
-        //     if available_cycles < cycles as u64 {
-        //         // if we're running faster than 60Hz, kill time
-        //         ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 60));
-        //     } else {
-        //         available_cycles -= cycles as u64;
-        //     }
-        // }
     }
 
 
@@ -133,11 +156,14 @@ impl World {
         let one_frame = Duration::new(0, 16_666_667);
         // Advance the timer by the delta time
         self.dt += *dt;
-        // Step the invaders one by one
+
+        //Trigger VBLANK interrupt? 
         while self.dt >= one_frame {
-            self.dt -= one_frame;
+            self.dt -= one_frame / 500;
             self.cpu.exec();
         }
+
+        self.cpu.vblank();
     }
     
     fn load_rom_mut(rom_name: &String, mem: &mut Vec<u8>) {
@@ -160,7 +186,6 @@ impl World {
     /// Assumes the default texture format: [`wgpu::TextureFormat::Rgba8UnormSrgb`]
     fn draw(&mut self, frame: &mut [u8]) {
         // Clear the screen
-        // clear(frame);
         for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
 
             let x = i % WIDTH as usize;

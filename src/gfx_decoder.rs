@@ -26,11 +26,19 @@ impl TileDecoder {
     }
   }
 
-  fn to_pixel_buffer(offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>) {
+  pub fn decode_sprite(offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
+      match &sprite_rom.get(offset ..offset + 64) {
+        Some(tile) => TileDecoder::to_pixel_buffer(offset, tile, pixel_buffer),
+        None => print!("Error?")
+      }
+  }
 
-    for r in 0..16 {
-      let x = r % WIDTH as usize;
-      let y = r / WIDTH as usize;
+  fn to_pixel_buffer(offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>) {
+    if offset < 0x40 {
+      return
+    }
+      let offset_y = (offset - 0x40) % 36 as usize;
+      let offset_x = (offset - 0x40) / 36 as usize;
       
        // Upper Eight columns
       for column in 0..8 {
@@ -49,7 +57,13 @@ impl TileDecoder {
           Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
         ].iter().enumerate() {
             let raw_data = pixel.to_rgba();
-            let pos = (i + 4) * WIDTH + column;
+            let pos = (i + 4) * WIDTH + column + offset_y * WIDTH * 8 + offset_x * 8;
+            // if column == 7 && i == 3 {
+            //   println!("Last position for upper eight: {}", format!("{:#x}", pos));
+            // }
+            // if column == 0 && i == 0 {
+            //   println!("First position for upper eight: {}", format!("{:#x}", pos));
+            // }
             pixel_buffer[pos] = raw_data;
         }
       }
@@ -71,10 +85,15 @@ impl TileDecoder {
           Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
         ].iter().enumerate() {
             let raw_data = pixel.to_rgba();
-            let pos = i * WIDTH + column;
+            let pos = i * WIDTH + column + offset_y * WIDTH * 8 + offset_x * 8;
+            // if column == 7 && i == 3 {
+            //   println!("Last position for lower eight: {}", format!("{:#x}", pos));
+            // }
+            // if column == 0 && i == 0 {
+            //   println!("First position for lower eight: {}", format!("{:#x}", pos));
+            // }
             pixel_buffer[pos] = raw_data;
         }
-      }
     }
   }
 }
