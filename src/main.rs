@@ -6,10 +6,12 @@
 /// comes first and is followed by the byte that contains the most significant bits (MSB) of the value.
 
 pub mod z80;
-pub mod memory;
-pub mod gfx_decoder;
-pub mod pixel;
+mod memory;
+mod gfx_decoder;
+mod pixel;
+mod gui;
 
+use crate::gui::Gui;
 use std::time::Duration;
 use std::time::Instant;
 pub use crate::z80::*;
@@ -20,15 +22,8 @@ use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit_input_helper::WinitInputHelper;
 
-// /// The screen width is constant (units are in pixels)
-// pub const SCREEN_WIDTH: usize = 224;
-// /// The screen height is constant (units are in pixels)
-// pub const SCREEN_HEIGHT: usize = 256;
-
 const WIDTH: usize = 224;
 const HEIGHT: usize = 288;
-
-const TARGET_FPS: u64 = 60;
 
 
 fn main () -> Result<(), Error> {
@@ -40,39 +35,78 @@ fn main () -> Result<(), Error> {
     let mut start_time = Instant::now();
     let mut world = World::new();
     let mut input = WinitInputHelper::new();
-
+    // Set up Dear ImGui
+    let mut gui = Gui::new(&window, &pixels);
     world.emulator_init();
 
     // Set up Dear ImGui
 
     event_loop.run(move |event, _, control_flow| {
         // The one and only event that winit_input_helper doesn't have for us...
-        if let Event::MainEventsCleared = event {
-            // Application update code.
+        // if let Event::MainEventsCleared = event {
+        //     // Application update code.
 
-            // Queue a RedrawRequested event.
-            //
-            // You only need to call this if you've determined that you need to redraw, in
-            // applications which do not always need to. Applications that redraw continuously
-            // can just render here instead.
-            let now = Instant::now();
-            let dt = now.duration_since(start_time);
-            start_time = now;
+        //     // Queue a RedrawRequested event.
+        //     //
+        //     // You only need to call this if you've determined that you need to redraw, in
+        //     // applications which do not always need to. Applications that redraw continuously
+        //     // can just render here instead.
+        //     let now = Instant::now();
+        //     let dt = now.duration_since(start_time);
+        //     start_time = now;
     
-            // Update the game logic and request redraw
-            world.update(&dt);
-            window.request_redraw();
-        }
+        //     // Update the game logic and request redraw
+        //     world.update(&dt);
+        //     window.request_redraw();
+        // }
 
         if let Event::RedrawRequested(_) = event {
             world.draw(pixels.get_frame());
-            if pixels
-                .render()
+
+             // Prepare Dear ImGui
+             gui.prepare(&window).expect("gui.prepare() failed");
+
+              // Render everything together
+            let render_result = pixels.render_with(|encoder, render_target, context| {
+                // Render the world texture
+                context.scaling_renderer.render(encoder, render_target);
+
+                // Render Dear ImGui
+                gui.render(&window, encoder, render_target, context)
+                    .expect("gui.render() failed");
+            });
+
+            // Basic error handling
+            if render_result
                 .map_err(|e| error!("pixels.render() failed: {}", e))
                 .is_err()
             {
                 *control_flow = ControlFlow::Exit;
                 return;
+            }
+
+            // Handle input events
+            gui.handle_event(&window, &event);
+            if input.update(&event) {
+                // Close events
+                if input.key_pressed(VirtualKeyCode::Escape) || input.quit() {
+                    *control_flow = ControlFlow::Exit;
+                    return;
+                }
+
+                // Resize the window
+                if let Some(size) = input.window_resized() {
+                    pixels.resize(size.width, size.height);
+                }
+
+                // Update internal state and request a redraw
+                let now = Instant::now();
+                let dt = now.duration_since(start_time);
+                start_time = now;
+        
+                // Update the game logic and request redraw
+                world.update(&dt);
+                window.request_redraw();
             }
         }
 
@@ -158,12 +192,12 @@ impl World {
         self.dt += *dt;
 
         //Trigger VBLANK interrupt? 
-        while self.dt >= one_frame {
-            self.dt -= one_frame / 500;
-            self.cpu.exec();
-        }
+        // while self.dt >= one_frame {
+        //     self.dt -= one_frame / 500;
+        //     self.cpu.exec();
+        // }
 
-        self.cpu.vblank();
+        // self.cpu.vblank();
     }
     
     fn load_rom_mut(rom_name: &String, mem: &mut Vec<u8>) {
