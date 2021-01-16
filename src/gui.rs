@@ -1,3 +1,6 @@
+use imgui_memory_editor::MemoryEditor;
+use std::time::Duration;
+use imgui::*;
 use pixels::{wgpu, PixelsContext};
 use std::time::Instant;
 
@@ -9,6 +12,9 @@ pub(crate) struct Gui {
     last_frame: Instant,
     last_cursor: Option<imgui::MouseCursor>,
     about_open: bool,
+    delta_s: Duration,
+    pc: u16,
+    // video_memory_editor: &'a Vec<u8>
 }
 
 impl Gui {
@@ -65,6 +71,9 @@ impl Gui {
             last_frame: Instant::now(),
             last_cursor: None,
             about_open: true,
+            delta_s: Duration::new(0, 0),
+            pc: 0,
+            // video_memory_editor: vec![0; 1024]
         }
     }
 
@@ -112,6 +121,45 @@ impl Gui {
             ui.show_about_window(&mut self.about_open);
         }
 
+        // let window = imgui::Window::new(im_str!("Hello world"));
+        // window
+        //     .size([300.0, 100.0], Condition::FirstUseEver)
+        //     .build(&ui, || {
+        //         ui.text(im_str!("Hello world!"));
+        //         ui.text(im_str!("This...is...imgui-rs on WGPU!"));
+        //         ui.separator();
+        //         let mouse_pos = ui.io().mouse_pos;
+        //         ui.text(im_str!(
+        //             "Mouse Position: ({:.1},{:.1})",
+        //             mouse_pos[0],
+        //             mouse_pos[1]
+        //         ));
+        //     });
+
+        // Let's try a Memory Editor!
+        let vec = vec![0; 0x400];
+        // Can also use a &mut [u8] if you want to use the editor to modify the slice
+        let mut memory_editor = MemoryEditor::<&[u8]>::new()
+        .draw_window(im_str!("Memory")) // Can omit if you don't want to create a window
+        .read_only(false);
+
+        if memory_editor.open() { // open() can be omitted if draw_window was not used
+            memory_editor.draw_vec(&ui, &vec)
+        }
+
+        let window = imgui::Window::new(im_str!("CPU and FPS"));
+        let delta = self.delta_s;
+        let pc = self.pc;
+
+        window
+            .size([400.0, 200.0], Condition::FirstUseEver)
+            .position([400.0, 200.0], Condition::FirstUseEver)
+            .build(&ui, || {
+                ui.text(im_str!("Frametime: {:?}",  delta));
+                ui.separator();
+                ui.text(im_str!("PC: {:?}",format!("{:#x}", pc)));
+            });
+
         // Render Dear ImGui with WGPU
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -138,6 +186,18 @@ impl Gui {
         self.platform
             .handle_event(self.imgui.io_mut(), window, event);
     }
+
+    pub fn update_delta_time(&mut self, delta: std::time::Duration) {
+        self.delta_s = delta
+    }
+
+    pub fn update_cpu_state(&mut self, pc: u16) {
+        self.pc = pc
+    }
+
+    // pub fn set_memory_editor_mem(&mut self, data: &Vec<u8>) {
+    //     self.video_memory_editor = data
+    // }
 }
 
 fn gamma_to_linear(color: [f32; 4]) -> [f32; 4] {

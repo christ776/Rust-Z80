@@ -33,32 +33,25 @@ fn main () -> Result<(), Error> {
     let surface_texture = SurfaceTexture::new(width, height, &window);
     let mut pixels = Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture)?;
     let mut start_time = Instant::now();
+    let mut last_frame = Instant::now();
     let mut world = World::new();
     let mut input = WinitInputHelper::new();
     // Set up Dear ImGui
     let mut gui = Gui::new(&window, &pixels);
     world.emulator_init();
 
-    // Set up Dear ImGui
-
     event_loop.run(move |event, _, control_flow| {
         // The one and only event that winit_input_helper doesn't have for us...
-        // if let Event::MainEventsCleared = event {
-        //     // Application update code.
+        if let Event::MainEventsCleared = event {
+            window.request_redraw();
+        }
 
-        //     // Queue a RedrawRequested event.
-        //     //
-        //     // You only need to call this if you've determined that you need to redraw, in
-        //     // applications which do not always need to. Applications that redraw continuously
-        //     // can just render here instead.
-        //     let now = Instant::now();
-        //     let dt = now.duration_since(start_time);
-        //     start_time = now;
-    
-        //     // Update the game logic and request redraw
-        //     world.update(&dt);
-        //     window.request_redraw();
-        // }
+        if let Event::RedrawEventsCleared = event {
+            let now = Instant::now();
+            gui.update_delta_time(now - last_frame);
+            gui.update_cpu_state(world.cpu.pc());
+            last_frame = now;
+        }
 
         if let Event::RedrawRequested(_) = event {
             world.draw(pixels.get_frame());
@@ -139,16 +132,16 @@ fn main () -> Result<(), Error> {
 }
 
 /// Representation of the application state. In this example, a box will bounce around the screen.
-struct World {
-    cpu: Z80,
+struct World<'a> {
+    cpu: Z80<'a>,
     dt: Duration
 }
 
-impl World {
+impl<'a> World<'a> {
      /// Create a new `World` instance that can draw a moving box.
      fn new() -> Self {
         Self {
-            cpu: z80::Z80::new(Memory::new_64k()),
+            cpu: z80::Z80::new(&mut Memory::new_64k()),
             dt: Duration::default()
         }
     }
@@ -173,10 +166,10 @@ impl World {
         let mut working_ram:Vec<u8> = vec![0; 4196];
         &mem.work_ram.append(&mut working_ram);
         println!("Memory size is {}", format!("{:#x}", mem.work_ram.len()));
-
+        mem.video_ram = vec![0; 1024];
         mem.pixel_buffer = vec![0; 64512];
-
-        self.cpu = z80::Z80::new(mem);
+        self.cpu = z80::Z80::new(&mut mem);
+        // gui.set_memory_editor_mem(mem.video_ram);
     }
 
 

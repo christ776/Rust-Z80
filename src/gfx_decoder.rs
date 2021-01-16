@@ -1,13 +1,25 @@
 
 use crate::pixel::Pixel;
 
+#[derive(Copy, Clone)]
 pub struct TileDecoder {
 
 }
 
 const WIDTH: usize = 224;
 
-impl TileDecoder {
+pub trait Decoder {
+  fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>);
+  fn to_pixel_buffer(offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>);
+  fn decode_sprite(offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>); 
+  fn new() -> Self where Self: Sized;
+}
+
+impl Decoder for TileDecoder {
+
+  fn new() -> Self {
+    Self {}
+  }
 
   /// Since screen is made up of 224 x 288 pixels (rotated)
   /// and each tile is a 8x8 pixel 4-color square, we could then split the ROM contents
@@ -19,14 +31,14 @@ impl TileDecoder {
   /// |--------
   /// | 4 | 4 |
   /// |--------
-  pub fn decode_tile(offset: usize, tile_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
+  fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
     match &tile_rom.get(offset ..offset + 16) {
       Some(tile) => TileDecoder::to_pixel_buffer(offset, tile, pixel_buffer),
       None => print!("Error?")
     }
   }
 
-  pub fn decode_sprite(offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
+  fn decode_sprite(offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
       match &sprite_rom.get(offset ..offset + 64) {
         Some(tile) => TileDecoder::to_pixel_buffer(offset, tile, pixel_buffer),
         None => print!("Error?")

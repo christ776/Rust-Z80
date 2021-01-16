@@ -19,13 +19,9 @@
 ///  flags (f): sz-h-pnc
 ///
 
-
-use std::thread::sleep;
-use std::time::Duration;
-use std::time::Instant;
 pub use crate:: memory::Memory;
 
-pub struct Z80 {
+pub struct Z80<'a> {
   pub a: i8,
   pub b: i8,
   pub c: i8,
@@ -37,7 +33,7 @@ pub struct Z80 {
   pub ix: u16,
   pub iy: u16,
   pub i: u8,
-  pub mem: Memory,
+  pub mem: &'a mut Memory,
   ///flags (f): sz-h-pnc
   flags: u8,
   _vblank_interrupt: bool,
@@ -51,8 +47,8 @@ pub struct Z80 {
   current_cycles: usize,
 }
 
-impl Z80 {
-  pub fn new(mem: Memory) -> Z80 {
+impl<'a> Z80 <'a> {
+  pub fn new(memory: &'a mut Memory) -> Z80<'a> {
     Z80{ a:0,
           pc: 0,
           b: 0,
@@ -64,7 +60,7 @@ impl Z80 {
           i: 0,
           ix: 0,
           iy: 0,
-          mem: mem,
+          mem: memory,
           flags: 0x0,
           _vblank_interrupt: false,
           enable_HW_interrupt: false,
@@ -186,7 +182,7 @@ impl Z80 {
     self.e = e
   }
 
-  fn pc(&self) -> u16 {
+  pub fn pc(&self) -> u16 {
     self.pc
   }
 

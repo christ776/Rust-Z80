@@ -6,6 +6,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "imgui",
+ "imgui-memory-editor",
  "imgui-wgpu",
  "imgui-winit-support",
  "log",
@@ -268,6 +269,12 @@ dependencies = [
  "libc",
  "objc",
 ]
+
+[[package]]
+name = "cty"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7313c0d620d0cb4dbd9d019e461a4beb501071ff46ec0ab933efb4daa76d73e3"
 
 [[package]]
 name = "d3d12"
@@ -677,6 +684,27 @@ dependencies = [
  "bitflags",
  "imgui-sys",
  "parking_lot",
+]
+
+[[package]]
+name = "imgui-memory-editor"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "461cb7bbfc11e7ca1d52288fa187c739ac8906a898dd9db2002bc587175d1ac9"
+dependencies = [
+ "imgui",
+ "imgui-memory-editor-sys",
+]
+
+[[package]]
+name = "imgui-memory-editor-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d22f23176d53d65891a821282e878968adbc0c5fcc63341174ab3cff4a372e4f"
+dependencies = [
+ "cc",
+ "cty",
+ "imgui-sys",
 ]
 
 [[package]]
