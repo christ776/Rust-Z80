@@ -11,6 +11,7 @@ mod gfx_decoder;
 mod pixel;
 mod gui;
 
+use crate::gfx_decoder::{ Decoder, TileDecoder };
 use crate::gui::Gui;
 use std::time::Duration;
 use std::time::Instant;
@@ -25,7 +26,6 @@ use winit_input_helper::WinitInputHelper;
 const WIDTH: usize = 224;
 const HEIGHT: usize = 288;
 
-
 fn main () -> Result<(), Error> {
     let event_loop = EventLoop::new();
     let _input = WinitInputHelper::new();
@@ -38,7 +38,7 @@ fn main () -> Result<(), Error> {
     let mut input = WinitInputHelper::new();
     // Set up Dear ImGui
     let mut gui = Gui::new(&window, &pixels);
-    world.emulator_init();
+    gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
 
     event_loop.run(move |event, _, control_flow| {
         // The one and only event that winit_input_helper doesn't have for us...
@@ -50,6 +50,7 @@ fn main () -> Result<(), Error> {
             let now = Instant::now();
             gui.update_delta_time(now - last_frame);
             gui.update_cpu_state(world.cpu.pc());
+            gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
             last_frame = now;
         }
 
@@ -125,31 +126,28 @@ fn main () -> Result<(), Error> {
         world.update(&dt);
         window.request_redraw();
 
-        // For everything else, for let winit_input_helper collect events to build its state.
-        // It returns `true` when it is time to update our game state and request a redraw.
-
     });
 }
 
 /// Representation of the application state. In this example, a box will bounce around the screen.
-struct World<'a> {
-    cpu: Z80<'a>,
-    dt: Duration
+struct World {
+    cpu: Z80,
+    dt: Duration,
 }
 
-impl<'a> World<'a> {
+impl World {
      /// Create a new `World` instance that can draw a moving box.
      fn new() -> Self {
         Self {
-            cpu: z80::Z80::new(&mut Memory::new_64k()),
-            dt: Duration::default()
+            cpu: z80::Z80::new(World::emulator_init()),
+            dt: Duration::default(),
         }
     }
 
-    fn emulator_init(&mut self) {
+    fn emulator_init() -> Memory {
         //alloc memory
-        let mut mem = Memory::new();
-    
+        let tile_decoder = TileDecoder::new(WIDTH);
+        let mut mem = Memory::new(tile_decoder);
         // Load ROM contents 
         World::load_rom_mut(&String::from("./pacman/pacman.6e"), &mut mem.work_ram);
         World::load_rom_mut(&String::from("./pacman/pacman.6f"), &mut mem.work_ram);
@@ -159,7 +157,6 @@ impl<'a> World<'a> {
         World::load_rom_mut(&String::from("./pacman/pacman.5e"), &mut mem.tile_rom);
         World::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut mem.tile_rom);
 
-
         // Working RAM ... it's a bit of a hack for now
         let mut video_ram:Vec<u8> = vec![0; 2048];
         &mem.work_ram.append(&mut video_ram);
@@ -168,8 +165,7 @@ impl<'a> World<'a> {
         println!("Memory size is {}", format!("{:#x}", mem.work_ram.len()));
         mem.video_ram = vec![0; 1024];
         mem.pixel_buffer = vec![0; 64512];
-        self.cpu = z80::Z80::new(&mut mem);
-        // gui.set_memory_editor_mem(mem.video_ram);
+        mem
     }
 
 

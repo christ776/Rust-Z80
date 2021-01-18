@@ -21,7 +21,7 @@
 
 pub use crate:: memory::Memory;
 
-pub struct Z80<'a> {
+pub struct Z80 {
   pub a: i8,
   pub b: i8,
   pub c: i8,
@@ -33,7 +33,7 @@ pub struct Z80<'a> {
   pub ix: u16,
   pub iy: u16,
   pub i: u8,
-  pub mem: &'a mut Memory,
+  pub mem: Memory,
   ///flags (f): sz-h-pnc
   flags: u8,
   _vblank_interrupt: bool,
@@ -44,11 +44,10 @@ pub struct Z80<'a> {
   hl_: u16,
   de_: u16,
   halted: bool,
-  current_cycles: usize,
 }
 
-impl<'a> Z80 <'a> {
-  pub fn new(memory: &'a mut Memory) -> Z80<'a> {
+impl Z80 {
+  pub fn new(memory: Memory) -> Z80 {
     Z80{ a:0,
           pc: 0,
           b: 0,
@@ -70,7 +69,6 @@ impl<'a> Z80 <'a> {
           hl_: 0,
           de_: 0,
           halted: false,
-          current_cycles: 0,
         }
   }
 
@@ -248,31 +246,6 @@ impl<'a> Z80 <'a> {
     self.hl = (h as u16) << 8 | l;
   }
 
-  // pub fn start(&mut self) {
-  //   let one_frame = Duration::new(0, 16_666_667);
-  //   let cycles_per_frame = 3_072_000 / 60;
-  //   let mut start_time = Instant::now();
-    
-  //   loop {
-  //     if !self.halted {
-  //       self.exec();
-  //     } 
-      
-  //       let now = Instant::now();
-  //       let dt = now.duration_since(start_time);
-
-  //       if self._vblank_interrupt && self.enable_INT {
-  //         start_time = Instant::now();
-  //         //Check for interrupts
-  //         self.enable_INT = false;
-  //         let interrup_handler_addr = self.mem.r16(u16::from_be_bytes([self.i, self.port_a_addr]));
-  //         self.call_1(interrup_handler_addr);
-  //         // self.ret();
-  //         self.current_cycles = 0;
-  //       }
-  //     }
-  // }
-
   pub fn exec(&mut self) -> u8 {
 
     // let now = Instant::now();
@@ -284,10 +257,9 @@ impl<'a> Z80 <'a> {
       //Check for interrupts
       self._vblank_interrupt = false;
       self.enable_HW_interrupt = false;
-      // self.enable_INT = false;
+      self.enable_INT = false;
       let interrup_handler_addr = self.mem.r16(u16::from_be_bytes([self.i, self.port_a_addr]));
       self.call_1(interrup_handler_addr);
-      // self.ret();
     }
 
     let op = self.mem.r8(self.pc) as u8;

@@ -1,24 +1,24 @@
 
 use crate::pixel::Pixel;
 
-#[derive(Copy, Clone)]
 pub struct TileDecoder {
-
+  width: usize
 }
 
-const WIDTH: usize = 224;
 
 pub trait Decoder {
-  fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>);
-  fn to_pixel_buffer(offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>);
-  fn decode_sprite(offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>); 
-  fn new() -> Self where Self: Sized;
+  fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, tile: usize, pixel_buffer: &mut Vec<u32>);
+  fn to_pixel_buffer(&self, offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>);
+  fn decode_sprite(&self, offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>); 
+  fn new(width: usize) -> Self where Self: Sized;
 }
 
 impl Decoder for TileDecoder {
 
-  fn new() -> Self {
-    Self {}
+  fn new(width: usize) -> Self {
+    Self {
+      width: width
+    }
   }
 
   /// Since screen is made up of 224 x 288 pixels (rotated)
@@ -31,21 +31,22 @@ impl Decoder for TileDecoder {
   /// |--------
   /// | 4 | 4 |
   /// |--------
-  fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
-    match &tile_rom.get(offset ..offset + 16) {
-      Some(tile) => TileDecoder::to_pixel_buffer(offset, tile, pixel_buffer),
+  fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, tile: usize, pixel_buffer: &mut Vec<u32>) {
+    let tile_offset = tile * 16;
+    match &tile_rom.get(tile_offset ..tile_offset + 16) {
+      Some(tile) => self.to_pixel_buffer(offset, tile, pixel_buffer),
       None => print!("Error?")
     }
   }
 
-  fn decode_sprite(offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
+  fn decode_sprite(&self, offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
       match &sprite_rom.get(offset ..offset + 64) {
-        Some(tile) => TileDecoder::to_pixel_buffer(offset, tile, pixel_buffer),
+        Some(tile) => self.to_pixel_buffer(offset, tile, pixel_buffer),
         None => print!("Error?")
       }
   }
 
-  fn to_pixel_buffer(offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>) {
+  fn to_pixel_buffer(&self, offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>) {
     if offset < 0x40 {
       return
     }
@@ -69,7 +70,7 @@ impl Decoder for TileDecoder {
           Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
         ].iter().enumerate() {
             let raw_data = pixel.to_rgba();
-            let pos = (i + 4) * WIDTH + column + offset_y * WIDTH * 8 + offset_x * 8;
+            let pos = (i + 4) * self.width + column + offset_y * self.width * 8 + offset_x * 8;
             // if column == 7 && i == 3 {
             //   println!("Last position for upper eight: {}", format!("{:#x}", pos));
             // }
@@ -97,7 +98,7 @@ impl Decoder for TileDecoder {
           Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
         ].iter().enumerate() {
             let raw_data = pixel.to_rgba();
-            let pos = i * WIDTH + column + offset_y * WIDTH * 8 + offset_x * 8;
+            let pos = i * self.width + column + offset_y * self.width * 8 + offset_x * 8;
             // if column == 7 && i == 3 {
             //   println!("Last position for lower eight: {}", format!("{:#x}", pos));
             // }

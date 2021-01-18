@@ -11,10 +11,9 @@ pub(crate) struct Gui {
     renderer: imgui_wgpu::Renderer,
     last_frame: Instant,
     last_cursor: Option<imgui::MouseCursor>,
-    about_open: bool,
     delta_s: Duration,
     pc: u16,
-    // video_memory_editor: &'a Vec<u8>
+    video_memory_editor: Vec<u8>
 }
 
 impl Gui {
@@ -70,10 +69,9 @@ impl Gui {
             renderer,
             last_frame: Instant::now(),
             last_cursor: None,
-            about_open: true,
             delta_s: Duration::new(0, 0),
             pc: 0,
-            // video_memory_editor: vec![0; 1024]
+            video_memory_editor: vec![0; 1024]
         }
     }
 
@@ -106,45 +104,14 @@ impl Gui {
             self.platform.prepare_render(&ui, window);
         }
 
-        // Draw windows and GUI elements here
-        let mut about_open = false;
-        ui.main_menu_bar(|| {
-            ui.menu(imgui::im_str!("Help"), true, || {
-                about_open = imgui::MenuItem::new(imgui::im_str!("About...")).build(&ui);
-            });
-        });
-        if about_open {
-            self.about_open = true;
-        }
-
-        if self.about_open {
-            ui.show_about_window(&mut self.about_open);
-        }
-
-        // let window = imgui::Window::new(im_str!("Hello world"));
-        // window
-        //     .size([300.0, 100.0], Condition::FirstUseEver)
-        //     .build(&ui, || {
-        //         ui.text(im_str!("Hello world!"));
-        //         ui.text(im_str!("This...is...imgui-rs on WGPU!"));
-        //         ui.separator();
-        //         let mouse_pos = ui.io().mouse_pos;
-        //         ui.text(im_str!(
-        //             "Mouse Position: ({:.1},{:.1})",
-        //             mouse_pos[0],
-        //             mouse_pos[1]
-        //         ));
-        //     });
-
         // Let's try a Memory Editor!
-        let vec = vec![0; 0x400];
         // Can also use a &mut [u8] if you want to use the editor to modify the slice
         let mut memory_editor = MemoryEditor::<&[u8]>::new()
-        .draw_window(im_str!("Memory")) // Can omit if you don't want to create a window
+        .draw_window(im_str!("Video Memory")) // Can omit if you don't want to create a window
         .read_only(false);
 
         if memory_editor.open() { // open() can be omitted if draw_window was not used
-            memory_editor.draw_vec(&ui, &vec)
+            memory_editor.draw_vec(&ui, &self.video_memory_editor)
         }
 
         let window = imgui::Window::new(im_str!("CPU and FPS"));
@@ -195,9 +162,9 @@ impl Gui {
         self.pc = pc
     }
 
-    // pub fn set_memory_editor_mem(&mut self, data: &Vec<u8>) {
-    //     self.video_memory_editor = data
-    // }
+    pub fn set_memory_editor_mem(&mut self, data: &Vec<u8>) {
+        self.video_memory_editor = data.to_vec()
+    }
 }
 
 fn gamma_to_linear(color: [f32; 4]) -> [f32; 4] {

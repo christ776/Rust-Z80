@@ -1,7 +1,6 @@
 use crate::gfx_decoder::Decoder;
 use crate::gfx_decoder::TileDecoder;
 
-#[derive(Clone)]
 pub struct Memory {
   pub work_ram: Vec<u8>,
   pub tile_rom: Vec<u8>,
@@ -12,43 +11,43 @@ pub struct Memory {
 
 impl Memory {
 
-    pub fn new() -> Memory {
+    pub fn new(tile_decoder: TileDecoder) -> Memory {
       Memory{
         work_ram: Vec::new(),
         tile_rom: Vec::new(),
         video_ram: Vec::new(),
         pixel_buffer: Vec::new(),
-        decoder: TileDecoder::new()
+        decoder: tile_decoder
       }
     }
 
-    pub fn new_64k() -> Memory {
+    pub fn new_64k(tile_decoder: TileDecoder) -> Memory {
       Memory { 
         work_ram: vec![0; 65536],
         tile_rom: vec![0; 65536],
         video_ram: vec![0; 1024],
         pixel_buffer: vec![0],
-        decoder: TileDecoder::new()
+        decoder: tile_decoder
       }
     }
 
-    pub fn new_1k() -> Memory {
+    pub fn new_1k(tile_decoder: TileDecoder) -> Memory {
       Memory { 
         work_ram: vec![0; 1024],
         tile_rom: vec![0; 1024],
         video_ram: vec![0; 1024],
         pixel_buffer: vec![0],
-        decoder: TileDecoder::new()
+        decoder: tile_decoder
       }
     }
 
     pub fn w8(&mut self, address:u16, data:u8) {
       match address {
         0x4000..=0x43de => {
-          // println!("Video RAM: accessed {} with {}", format!("{:#x}", address), data);
           let offset = address - 0x4000;
+          // println!("Video RAM: accessed {} with {}", format!("{:#x}", offset), format!("{:#x}", data));
           self.video_ram[offset as usize] = data;
-          self.decoder.decode_tile(offset as usize, &self.tile_rom, &mut self.pixel_buffer);
+          self.decoder.decode_tile(offset as usize, &self.tile_rom, data as usize, &mut self.pixel_buffer);
         },
         // 0x5000 => {
         //   println!("IO: accessed {} with {}", format!("{:#x}", address), data);
