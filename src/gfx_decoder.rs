@@ -9,7 +9,8 @@ pub struct TileDecoder {
 pub trait Decoder {
   fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, tile: usize, pixel_buffer: &mut Vec<u32>);
   fn to_pixel_buffer(&self, offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>);
-  fn decode_sprite(&self, offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>); 
+  fn decode_sprite(&self, address: usize, sprite_positions: &[u8], sprite_rom: &Vec<u8>,
+    position_y: usize, pixel_buffer: &mut Vec<u32>); 
   fn new(width: usize) -> Self where Self: Sized;
 }
 
@@ -39,12 +40,40 @@ impl Decoder for TileDecoder {
     }
   }
 
-  fn decode_sprite(&self, offset: usize, sprite_rom: &Vec<u8>, pixel_buffer: &mut Vec<u32>) {
-      match &sprite_rom.get(offset ..offset + 64) {
-        Some(tile) => self.to_pixel_buffer(offset, tile, pixel_buffer),
-        None => print!("Error?")
-      }
-  }
+  fn decode_sprite(&self,
+        address: usize, sprite_positions: &[u8], sprite_rom: &Vec<u8>,
+        position_y: usize, pixel_buffer: &mut Vec<u32>) {
+
+        // Select Sprite# from Sprite ROM
+        let sprite_number = (sprite_positions[0] >> 2) as usize;
+        let offset_y = position_y;
+        let offset_x = 10;
+        // Sprite #0
+        let lines_per_row = 4;
+        for block in (0..4).rev() { // Each "block" starts from the botton - up, and has 16 column by 4 rows
+              // Upper Sixteen columns
+          for column in (0..16).rev() {
+            //We need four bytes per 4 pixels , because each pixel has a 8-bit color depth
+            // thus having 8 bit planes for 4 pixels
+
+            //Get lowest four bits, each bit corresponding to a different pixel, plane 0
+            let low_nibble = sprite_rom[column + sprite_number * 64] & 0x0F;
+            //Get hightest four bits, each bit corresponding to a different pixel, plane 1
+            let high_nibble = (sprite_rom[column + sprite_number * 64] >> 4) & 0x0F;
+
+            for (i, pixel) in [ 
+              Pixel::new(low_nibble & 0x01, high_nibble & 0x01),
+              Pixel::new((low_nibble & 0x02) >> 1, (high_nibble & 0x02) >> 1),
+              Pixel::new((low_nibble & 0x04) >> 2, (high_nibble & 0x04) >> 2),
+              Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
+            ].iter().enumerate() {
+                let raw_data = pixel.to_rgba();
+                let pos = (i + 4) * self.width + column + offset_y * self.width * 8 + offset_x * 8 + block * lines_per_row;
+                pixel_buffer[pos] = raw_data;
+            }
+          }
+        }
+    }
 
   fn to_pixel_buffer(&self, offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>) {
     if offset < 0x40 {
@@ -54,7 +83,7 @@ impl Decoder for TileDecoder {
       let offset_x = (offset - 0x40) / 36 as usize;
       
        // Upper Eight columns
-      for column in 0..8 {
+      for column in (0..8).rev() {
         //We need four bytes per 4 pixels , because each pixel has a 8-bit color depth
         // thus having 8 bit planes for 4 pixels
 
@@ -82,7 +111,7 @@ impl Decoder for TileDecoder {
       }
 
        // Lower Eight columns
-      for column in 0..8 {
+      for column in (0..8).rev() {
         //We need four bytes per 4 pixels , because each pixel has a 8-bit color depth
         // thus having 8 bit planes for 4 pixels
 

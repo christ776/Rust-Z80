@@ -4,9 +4,10 @@ use crate::gfx_decoder::TileDecoder;
 pub struct Memory {
   pub work_ram: Vec<u8>,
   pub tile_rom: Vec<u8>,
-  pub video_ram: Vec<u8>,
   pub pixel_buffer: Vec<u32>,
-  decoder:TileDecoder
+  decoder:TileDecoder,
+  pub sprite_rom: Vec<u8>,
+  pub video_ram: Vec<u8>,
 }
 
 impl Memory {
@@ -15,9 +16,10 @@ impl Memory {
       Memory{
         work_ram: Vec::new(),
         tile_rom: Vec::new(),
-        video_ram: Vec::new(),
-        pixel_buffer: Vec::new(),
-        decoder: tile_decoder
+        decoder: tile_decoder,
+        sprite_rom: Vec::new(),
+        pixel_buffer: vec![0; 64512],
+        video_ram: vec![0;2048],
       }
     }
 
@@ -27,6 +29,7 @@ impl Memory {
         tile_rom: vec![0; 65536],
         video_ram: vec![0; 1024],
         pixel_buffer: vec![0],
+        sprite_rom: vec![0; 1024],
         decoder: tile_decoder
       }
     }
@@ -37,6 +40,7 @@ impl Memory {
         tile_rom: vec![0; 1024],
         video_ram: vec![0; 1024],
         pixel_buffer: vec![0],
+        sprite_rom: vec![0; 1024],
         decoder: tile_decoder
       }
     }
@@ -49,9 +53,13 @@ impl Memory {
           self.video_ram[offset as usize] = data;
           self.decoder.decode_tile(offset as usize, &self.tile_rom, data as usize, &mut self.pixel_buffer);
         },
-        // 0x5000 => {
-        //   println!("IO: accessed {} with {}", format!("{:#x}", address), data);
-        //   self.work_ram[address as usize] = data;
+        0x4400..=0x47ff => {
+          let offset = address - 0x4000;
+          self.video_ram[offset as usize] = data;
+          // println!("Palette RAM: accessed {} with {}", format!("{:#x}", address), data);
+        },
+        // 0x5000..=0x5007=> {
+        //   // println!("IO: accessed {} with {}", format!("{:#x}", address), data);
         // },
         // 0x50c0..=0x50ff => 
         //   println!("Kicking the watchdog at {} with {}", format!("{:#x}", address), data),
@@ -59,9 +67,10 @@ impl Memory {
             println!("Sound tests at {} with {}", format!("{:#x}", address), data)
         },
         0x5060..=0x506f => {    
-          println!("Sprite coordinates at {} with {}", format!("{:#x}", address), data);
-          //let offset = address - 0x4000;
-          //TileDecoder::decode_sprite(offset as usize, &self.tile_rom[4096], &mut self.pixel_buffer)
+          match self.work_ram.get(0x4ff0 ..0x4fff) {
+            Some(sprite_positions) => self.decoder.decode_sprite(address as usize, sprite_positions, &self.sprite_rom, data as usize, &mut self.pixel_buffer),
+            None => println!("Error decoding Sprite positions?")
+          }
         },
         0x5070..=0x50bf => {    
           println!("??? {} with {}", format!("{:#x}", address), data)
@@ -69,7 +78,7 @@ impl Memory {
         0x50c0..=0x50ff => {    
           // println!("Watchdog reset")
         },
-        _ => self.work_ram[address as usize] = data,
+        _ => self.work_ram[(address & 0x7FFF) as usize] = data,
       }
     }
 
@@ -89,17 +98,37 @@ impl Memory {
     }
 
     pub fn r16(&self, addr: u16) -> u16 {
-      let l:u16 = self.work_ram[addr as usize].into();
-      let h: u16 = self.work_ram[(addr +1) as usize].into();
-      h << 8 | l
+      match addr {
+        0x5555 => 0,
+        _ => {
+          let address = addr & 0x7FFF;
+          let l:u16 = self.work_ram[address as usize].into();
+          let h: u16 = self.work_ram[(address +1) as usize].into();
+          h << 8 | l
+        }
+      }
     }
 
     pub fn r8(&self, addr: u16) -> i8 {
+      let address = (addr & 0x7FFF) as u16;
       match addr {
-        0x5040..=0x507F => {
-          0x10
+        0x5000 => { // Read IN0: Joystick and coin slot
+          0b0000_0000 
+        },
+        0x5040 => {
+          0b0000_0000 // IN1
+        },
+        0x5080 => {
+          0b0001_0011 //Dip-Switch byte
+        }
+        0x5041..=0x507F => {
+          0b0000_0000 
         }, 
-        _ => self.work_ram[addr as usize] as i8
+        0x4400..=0x47ff => {
+          println!("Reading Palette RAM");
+          0x7f
+        },
+        _ => self.work_ram[address as usize] as i8
       }
   }
 }

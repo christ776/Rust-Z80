@@ -49,7 +49,7 @@ fn main () -> Result<(), Error> {
         if let Event::RedrawEventsCleared = event {
             let now = Instant::now();
             gui.update_delta_time(now - last_frame);
-            gui.update_cpu_state(world.cpu.pc());
+            gui.update_cpu_state(world.cpu.pc);
             gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
             last_frame = now;
         }
@@ -155,16 +155,12 @@ impl World {
         World::load_rom_mut(&String::from("./pacman/pacman.6j"), &mut mem.work_ram);
         //Tile ROMS
         World::load_rom_mut(&String::from("./pacman/pacman.5e"), &mut mem.tile_rom);
-        World::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut mem.tile_rom);
+        World::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut mem.sprite_rom);
 
         // Working RAM ... it's a bit of a hack for now
-        let mut video_ram:Vec<u8> = vec![0; 2048];
-        &mem.work_ram.append(&mut video_ram);
+        // &mem.work_ram.append(&mut video_ram);
         let mut working_ram:Vec<u8> = vec![0; 4196];
         &mem.work_ram.append(&mut working_ram);
-        println!("Memory size is {}", format!("{:#x}", mem.work_ram.len()));
-        mem.video_ram = vec![0; 1024];
-        mem.pixel_buffer = vec![0; 64512];
         mem
     }
 
@@ -214,7 +210,7 @@ impl World {
             let x = i % WIDTH as usize;
             let y = i / WIDTH as usize;
 
-            let t = self.cpu.mem.pixel_buffer[x + y * WIDTH];
+            let t = self.cpu.mem.pixel_buffer[i];
             let raw_bytes = t.to_be_bytes();
             pixel.copy_from_slice(&raw_bytes);
         }
