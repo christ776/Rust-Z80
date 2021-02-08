@@ -1,5 +1,7 @@
 #![allow(non_snake_case)]
 #[macro_use] extern crate log;
+#[macro_use] extern crate bitflags;
+
 
 /// In Z80 all 16-bit immedidates are encoded in the little-endian order of bytes,
 /// meaning the byte that contains the least significant bits (LSB)
@@ -10,6 +12,7 @@ mod memory;
 mod gfx_decoder;
 mod pixel;
 mod gui;
+mod registers;
 
 use crate::gfx_decoder::{ Decoder, TileDecoder };
 use crate::gui::Gui;
@@ -49,7 +52,7 @@ fn main () -> Result<(), Error> {
         if let Event::RedrawEventsCleared = event {
             let now = Instant::now();
             gui.update_delta_time(now - last_frame);
-            gui.update_cpu_state(world.cpu.pc);
+            gui.update_cpu_state(world.cpu.r.pc);
             gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
             last_frame = now;
         }
@@ -206,9 +209,6 @@ impl World {
     fn draw(&mut self, frame: &mut [u8]) {
         // Clear the screen
         for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-
-            let x = i % WIDTH as usize;
-            let y = i / WIDTH as usize;
 
             let t = self.cpu.mem.pixel_buffer[i];
             let raw_bytes = t.to_be_bytes();

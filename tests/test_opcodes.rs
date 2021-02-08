@@ -1,15 +1,15 @@
 #[allow(unused_imports)]
 
 mod test_opcodes {
-use Z80::gfx_decoder::{ TileDecoder, Decoder };
 use Z80::memory::Memory;
 use Z80::z80;
+use Z80::registers::{ Register16Bit, Flags };
 
   #[test]
   fn test_ld_ihl_n() {
-      let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
-      cpu.set_sp(0xFFFF);
-      cpu.set_pc(0x0000);
+      let mut cpu = z80::Z80::new(Memory::new_64k());
+      cpu.r.sp = 0xFFFF;
+      cpu.r.pc = 0x0000;
       let prog = [
           0x21, 0x00, 0x20,   // LD HL,0x2000
           0x36, 0x33,         // LD (HL),0x33
@@ -18,18 +18,18 @@ use Z80::z80;
       ];
       cpu.mem.write(0x0000, &prog);
       cpu.exec();
-      assert!(0x2000 == cpu.hl);
+      assert!(0x2000 == cpu.r.get_u16(Register16Bit::HL));
       cpu.exec();
       assert!(0x33 == cpu.mem.r8(0x2000));
       cpu.exec();
-      assert!(0x1000 == cpu.hl);
+      assert!(0x1000 == cpu.r.get_u16(Register16Bit::HL));
       cpu.exec();
       assert!(0x65 == cpu.mem.r8(0x1000));
   }
 
   #[test]
   fn test_ld_ihl() {
-      let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+      let mut cpu = z80::Z80::new(Memory::new_64k());
       let prog = [
           0x77,       // LD (HL),A
           0x46,       // LD B,(HL)
@@ -40,26 +40,26 @@ use Z80::z80;
       ];
       cpu.mem.write(0x0100, &prog);
 
-      cpu.a = 0x33;
-      cpu.hl = 0x1000;
-      cpu.set_pc(0x0100);
+      cpu.r.a = 0x33;
+    //   cpu.r.set_u16(Register16Bit::HL, 0x1000);
+      cpu.r.pc = 0x0100;
       cpu.exec();
       assert_eq!(0x33, cpu.mem.r8(0x1000));
       cpu.exec();
-      assert_eq!(0x33, cpu.b);
+      assert_eq!(0x33, cpu.r.b);
       cpu.exec();
-      assert_eq!(0x33, cpu.c);
+      assert_eq!(0x33, cpu.r.c);
       cpu.exec();
-      assert_eq!(0x33, cpu.d);
+      assert_eq!(0x33, cpu.r.d);
       cpu.exec();
-      assert_eq!(0x33, cpu.e);
+      assert_eq!(0x33, cpu.r.e);
       cpu.exec();
-      assert_eq!(0x33, cpu.get_hl_h());
+      assert_eq!(0x33, cpu.r.h);
   }
 
       #[test]
     fn test_add_r() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x3E, 0x0F,     // LD A,0x0F
             0x87,           // ADD A,A
@@ -80,42 +80,42 @@ use Z80::z80;
         ];
         cpu.mem.write(0x0000, &prog);
         cpu.exec();
-        assert_eq!(0x0F, cpu.a); assert_eq!(cpu.flags, 0);
+        assert_eq!(0x0F, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
         cpu.exec();
-        assert_eq!(0x1E, cpu.a); assert!(cpu.flags_get_h());
+        assert_eq!(0x1E, cpu.r.a); assert!(cpu.r.f.contains(Flags::HALFCARRY));
         cpu.exec();
-        assert_eq!(0xE0, cpu.b as u8);
+        assert_eq!(0xE0, cpu.r.b);
         cpu.exec();
-        assert_eq!(0xFE, cpu.a as u8); assert!(cpu.flags_get_s());
+        assert_eq!(0xFE, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
         cpu.exec();
-        assert_eq!(0x81, cpu.a as u8);
+        assert_eq!(0x81, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x80, cpu.c as u8);
+        assert_eq!(0x80, cpu.r.c);
         cpu.exec();
-        assert_eq!(0x01, cpu.a); assert!(cpu.flags_get_c() | cpu.flags_get_pe());
+        assert_eq!(0x01, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY)| cpu.r.f.contains(Flags::PARITY));
         cpu.exec();
-        assert_eq!(0xFF, cpu.d as u8);
+        assert_eq!(0xFF, cpu.r.d);
         cpu.exec();
-        assert_eq!(0x00, cpu.a); assert!(cpu.flags_get_z() | cpu.flags_get_h()| cpu.flags_get_c());
+        assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO) | cpu.r.f.contains(Flags::HALFCARRY)| cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x40, cpu.e);
+        assert_eq!(0x40, cpu.r.e);
         cpu.exec();
-        assert_eq!(0x40, cpu.a); assert_eq!(cpu.flags, 0);
+        assert_eq!(0x40, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
         cpu.exec();
-        assert_eq!(0x80, cpu.get_hl_h()as u8);
+        assert_eq!(0x80, cpu.r.h);
         cpu.exec();
-        assert_eq!(0xC0, cpu.a as u8); assert!(cpu.flags_get_s());
+        assert_eq!(0xC0, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
         cpu.exec();
-        assert_eq!(0x33, cpu.get_hl_l() as u8);
+        assert_eq!(0x33, cpu.r.l);
         cpu.exec();
-        assert_eq!(0xF3, cpu.a as u8); assert!(cpu.flags_get_s());
+        assert_eq!(0xF3, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
         cpu.exec();
-        assert_eq!(0x37, cpu.a as u8); assert!(cpu.flags_get_c());
+        assert_eq!(0x37, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY));
     }
 
     #[test]
     fn test_add_r_2() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x3E, 0x0F,     // LD A,0x0F
             0x87,           // ADD A,A
@@ -136,42 +136,42 @@ use Z80::z80;
         ];
         cpu.mem.write(0x0000, &prog);
         cpu.exec();
-        assert_eq!(0x0F, cpu.a); assert_eq!(cpu.flags, 0);
+        assert_eq!(0x0F, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
         cpu.exec();
-        assert_eq!(0x1E, cpu.a); assert!(cpu.flags_get_h());
+        assert_eq!(0x1E, cpu.r.a); assert!(cpu.r.f.contains(Flags::HALFCARRY));
         cpu.exec();
-        assert_eq!(0xE0, cpu.b as u8);
+        assert_eq!(0xE0, cpu.r.b);
         cpu.exec();
-        assert_eq!(0xFE, cpu.a as u8); assert!(cpu.flags_get_s());
+        assert_eq!(0xFE, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
         cpu.exec();
-        assert_eq!(0x81, cpu.a as u8);
+        assert_eq!(0x81, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x80, cpu.c as u8);
+        assert_eq!(0x80, cpu.r.c);
         cpu.exec();
-        assert_eq!(0x01, cpu.a); assert!(cpu.flags_get_c() | cpu.flags_get_pe());
+        assert_eq!(0x01, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY)| cpu.r.f.contains(Flags::PARITY));
         cpu.exec();
-        assert_eq!(0xFF, cpu.d as u8);
+        assert_eq!(0xFF, cpu.r.d);
         cpu.exec();
-        assert_eq!(0x00, cpu.a); assert!(cpu.flags_get_z() | cpu.flags_get_c() | cpu.flags_get_h());
+        assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO) | cpu.r.f.contains(Flags::CARRY)| cpu.r.f.contains(Flags::HALFCARRY));
         cpu.exec();
-        assert_eq!(0x40, cpu.e);
+        assert_eq!(0x40, cpu.r.e);
         cpu.exec();
-        assert_eq!(0x40, cpu.a); assert_eq!(cpu.flags, 0);
+        assert_eq!(0x40, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
         cpu.exec();
-        assert_eq!(0x80, cpu.get_hl_h() as u8);
+        assert_eq!(0x80, cpu.r.h);
         cpu.exec();
-        assert_eq!(0xC0, cpu.a as u8); assert!(cpu.flags_get_s());
+        assert_eq!(0xC0, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
         cpu.exec();
-        assert_eq!(0x33, cpu.get_hl_l() as u8);
+        assert_eq!(0x33, cpu.r.l);
         cpu.exec();
-        assert_eq!(0xF3, cpu.a as u8); assert!(cpu.flags_get_s());
+        assert_eq!(0xF3, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
         cpu.exec();
-        assert_eq!(0x37, cpu.a as u8); assert!(cpu.flags_get_c());
+        assert_eq!(0x37, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY));
     }
 
     #[test]
     fn test_call_cc_ret_cc() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
 			0x97,               //      SUB A
 			0xC4, 0x29, 0x02,   //      CALL NZ,l0
@@ -200,91 +200,91 @@ use Z80::z80;
 			0xD8,               //      RET C<Paste>
         ];
 		cpu.mem.write(0x0204, &prog);
-		cpu.set_pc(0x0204);
-		cpu.set_sp(0x0100);
+		cpu.r.pc = 0x0204;
+		cpu.r.sp = 0x0100;
 
         cpu.exec();
-        assert_eq!(0x00, cpu.a);
+        assert_eq!(0x00, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x0208, cpu.pc);
+        assert_eq!(0x0208, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0229, cpu.pc);
+        assert_eq!(0x0229, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x022A, cpu.pc);
+        assert_eq!(0x022A, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x020B, cpu.pc);
+        assert_eq!(0x020B, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x01, cpu.a);
+        assert_eq!(0x01, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x0210, cpu.pc);
+        assert_eq!(0x0210, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x022B, cpu.pc);
+        assert_eq!(0x022B, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x022C, cpu.pc);
+        assert_eq!(0x022C, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0213, cpu.pc);
+        assert_eq!(0x0213, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x02, cpu.a);
+        assert_eq!(0x02, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x0217, cpu.pc);
+        assert_eq!(0x0217, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x022D, cpu.pc);
+        assert_eq!(0x022D, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x022E, cpu.pc);
+        assert_eq!(0x022E, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x021A, cpu.pc);
+        assert_eq!(0x021A, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0xFF, cpu.a as u8);
+        assert_eq!(0xFF, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x021F, cpu.pc);
+        assert_eq!(0x021F, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x022F, cpu.pc);
+        assert_eq!(0x022F, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0230, cpu.pc);
+        assert_eq!(0x0230, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0222, cpu.pc);
+        assert_eq!(0x0222, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0225, cpu.pc);
+        assert_eq!(0x0225, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0231, cpu.pc);
+        assert_eq!(0x0231, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0232, cpu.pc);
+        assert_eq!(0x0232, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0228, cpu.pc);
+        assert_eq!(0x0228, cpu.r.pc);
     }
 
     #[test]
     fn test_call_ret() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
-        cpu.set_sp(0xFFFF);
+        let mut cpu = z80::Z80::new(Memory::new_64k());
+        cpu.r.sp = 0xFFFF;
         let prog = [
             0xCD, 0x0A, 0x02,   // CALL l0
             0xCD, 0x0A, 0x02,   // CALL l0
             0xC9,               // l0: RET
         ];
         cpu.mem.write(0x0204, &prog);
-        cpu.set_pc(0x0204);
+        cpu.r.pc = 0x0204;
         cpu.exec();
-        assert_eq!(0x020A, cpu.pc);
+        assert_eq!(0x020A, cpu.r.pc);
         // cpu.exec();
-        assert_eq!(0xFFFD, cpu.sp);
+        assert_eq!(0xFFFD, cpu.r.sp);
         println!("Memory contents at 0xFFFD {}", format!("{:#x}", cpu.mem.r16(0xFFFD)));
         assert_eq!(0x0207, cpu.mem.r16(0xFFFD));
         cpu.exec();
-        assert_eq!(0x0207, cpu.pc);
-        assert_eq!(0xFFFF, cpu.sp);
+        assert_eq!(0x0207, cpu.r.pc);
+        assert_eq!(0xFFFF, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x020A, cpu.pc);
-        assert_eq!(0xFFFD, cpu.sp);
+        assert_eq!(0x020A, cpu.r.pc);
+        assert_eq!(0xFFFD, cpu.r.sp);
         cpu.exec();
         assert_eq!(0x020A, cpu.mem.r16(0xFFFD));
-        assert_eq!(0x020A, cpu.pc);
-        assert_eq!(0xFFFF, cpu.sp);
+        assert_eq!(0x020A, cpu.r.pc);
+        assert_eq!(0xFFFF, cpu.r.sp);
     }
 
  #[test]
     fn test_push_pop() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x01, 0x34, 0x12,       // LD BC,0x1234
             0x11, 0x78, 0x56,       // LD DE,0x5678
@@ -309,48 +309,48 @@ use Z80::z80;
         cpu.mem.write(0x0000, &prog);
 
         cpu.exec();
-        assert_eq!(0x1234, cpu.bc());
+        assert_eq!(0x1234, cpu.r.get_u16(Register16Bit::BC));
         cpu.exec();
-        assert_eq!(0x5678, cpu.de());
+        assert_eq!(0x5678, cpu.r.get_u16(Register16Bit::DE));
         cpu.exec();
-        assert_eq!(0x9ABC, cpu.hl);
+        assert_eq!(0x9ABC, cpu.r.get_u16(Register16Bit::HL));
         cpu.exec();
-        assert_eq!(0xEF00, cpu.af());
+        assert_eq!(0xEF00, cpu.r.get_u16(Register16Bit::AF));
         cpu.exec();
-        assert_eq!(0x2345, cpu.ix);
+        assert_eq!(0x2345, cpu.r.get_u16(Register16Bit::IX));
         cpu.exec();
-        assert_eq!(0x6789, cpu.iy);
+        assert_eq!(0x6789, cpu.r.get_u16(Register16Bit::IY));
         cpu.exec();
-        assert_eq!(0x0100, cpu.sp);
+        assert_eq!(0x0100, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0xEF00, cpu.mem.r16(0x00FE)); assert_eq!(0x00FE, cpu.sp);
+        assert_eq!(0xEF00, cpu.mem.r16(0x00FE)); assert_eq!(0x00FE, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x1234, cpu.mem.r16(0x00FC)); assert_eq!(0x00FC, cpu.sp);
+        assert_eq!(0x1234, cpu.mem.r16(0x00FC)); assert_eq!(0x00FC, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x5678, cpu.mem.r16(0x00FA)); assert_eq!(0x00FA, cpu.sp);
+        assert_eq!(0x5678, cpu.mem.r16(0x00FA)); assert_eq!(0x00FA, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x9ABC, cpu.mem.r16(0x00F8)); assert_eq!(0x00F8, cpu.sp);
+        assert_eq!(0x9ABC, cpu.mem.r16(0x00F8)); assert_eq!(0x00F8, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x2345, cpu.mem.r16(0x00F6)); assert_eq!(0x00F6, cpu.sp);
+        assert_eq!(0x2345, cpu.mem.r16(0x00F6)); assert_eq!(0x00F6, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x6789, cpu.mem.r16(0x00F4)); assert_eq!(0x00F4, cpu.sp);
+        assert_eq!(0x6789, cpu.mem.r16(0x00F4)); assert_eq!(0x00F4, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x6789, cpu.af()); assert_eq!(0x00F6, cpu.sp);
+        assert_eq!(0x6789, cpu.r.get_u16(Register16Bit::AF)); assert_eq!(0x00F6, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x2345, cpu.bc()); assert_eq!(0x00F8, cpu.sp);
+        assert_eq!(0x2345, cpu.r.get_u16(Register16Bit::BC)); assert_eq!(0x00F8, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x9ABC, cpu.de()); assert_eq!(0x00FA, cpu.sp);
+        assert_eq!(0x9ABC, cpu.r.get_u16(Register16Bit::DE)); assert_eq!(0x00FA, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x5678, cpu.hl); assert_eq!(0x00FC, cpu.sp);
+        assert_eq!(0x5678, cpu.r.get_u16(Register16Bit::HL)); assert_eq!(0x00FC, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0x1234, cpu.ix); assert_eq!(0x00FE, cpu.sp);
+        assert_eq!(0x1234, cpu.r.get_u16(Register16Bit::IX)); assert_eq!(0x00FE, cpu.r.sp);
         cpu.exec();
-        assert_eq!(0xEF00, cpu.iy); assert_eq!(0x0100, cpu.sp);
+        assert_eq!(0xEF00, cpu.r.get_u16(Register16Bit::IY)); assert_eq!(0x0100, cpu.r.sp);
     }
 
     #[test]
     fn test_cp_r() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x3E, 0x04,     // LD A,0x04
             0x06, 0x05,     // LD B,0x05
@@ -370,38 +370,38 @@ use Z80::z80;
         ];
         cpu.mem.write(0x0000, &prog);
         cpu.exec();
-        assert_eq!(0x04, cpu.a);
+        assert_eq!(0x04, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x05, cpu.b);
+        assert_eq!(0x05, cpu.r.b);
         cpu.exec();
-        assert_eq!(0x03, cpu.c);
+        assert_eq!(0x03, cpu.r.c);
         cpu.exec();
-        assert_eq!(0xff, cpu.d as u8);
+        assert_eq!(0xff, cpu.r.d);
         cpu.exec();
-        assert_eq!(0xaa, cpu.e as u8);
+        assert_eq!(0xaa, cpu.r.e);
         cpu.exec();
-        assert_eq!(0x80, cpu.get_hl_h() as u8);
+        assert_eq!(0x80, cpu.r.h);
         cpu.exec();
-        assert_eq!(0x7f, cpu.get_hl_l());
+        assert_eq!(0x7f, cpu.r.l);
         cpu.exec();
-        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_z() && cpu.flags_get_n());
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO) && cpu.r.f.contains(Flags::NEGATIVE));
         cpu.exec();
-        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c() && cpu.flags_get_s() && cpu.flags_get_n());
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY) && cpu.r.f.contains(Flags::SIGN) && cpu.r.f.contains(Flags::NEGATIVE));
         cpu.exec();
-        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_n());
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::NEGATIVE));
         cpu.exec();
-        assert_eq!(0x04, cpu.a); assert!(cpu.flags_get_c());
-        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
-        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, HF|NF|CF));
-        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, HF|NF|CF));
-        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|VF|NF|CF));
-        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, SF|HF|NF|CF));
-        // assert_eq!(0x04, cpu.a); assert!(flags(&cpu, ZF|NF));
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY));
+        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, SF|HF|NF|CF));
+        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, HF|NF|CF));
+        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, HF|NF|CF));
+        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, SF|VF|NF|CF));
+        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, SF|HF|NF|CF));
+        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, ZF|NF));
     }
 
     #[test]
     fn test_jr_cc() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x97,           //      SUB A
             0x20, 0x03,     //      JR NZ l0
@@ -418,30 +418,30 @@ use Z80::z80;
             0x00,           //      NOP
         ];
         cpu.mem.write(0x204, &prog);
-        cpu.set_pc(0x0204);
+        cpu.r.pc = 0x0204;
         cpu.exec();
-        assert_eq!(0x00, cpu.a);
+        assert_eq!(0x00, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x0207, cpu.pc());
+        assert_eq!(0x0207, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x020A, cpu.pc());
+        assert_eq!(0x020A, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x01, cpu.a);
+        assert_eq!(0x01, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x020E, cpu.pc());
+        assert_eq!(0x020E, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0211, cpu.pc());
+        assert_eq!(0x0211, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0xFE, cpu.a as u8);
+        assert_eq!(0xFE, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x0215, cpu.pc());
+        assert_eq!(0x0215, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x0218, cpu.pc());
+        assert_eq!(0x0218, cpu.r.pc);
     }
 
     #[test]
     fn test_djnz() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x06, 0x03,     // LD BC,0x03
             0x97,           // SUB A
@@ -450,28 +450,28 @@ use Z80::z80;
             0x00,           // NOP
         ];
         cpu.mem.write(0x0204, &prog);
-        cpu.set_pc(0x0204);
+        cpu.r.pc = 0x0204;
         cpu.exec();
-        assert_eq!(0x03, cpu.b);
+        assert_eq!(0x03, cpu.r.b);
         cpu.exec();
-        assert_eq!(0x00, cpu.a);
+        assert_eq!(0x00, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x01, cpu.a);
+        assert_eq!(0x01, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x02, cpu.b); assert_eq!(0x0207, cpu.pc());
+        assert_eq!(0x02, cpu.r.b); assert_eq!(0x0207, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x02, cpu.a);
+        assert_eq!(0x02, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x01, cpu.b); assert_eq!(0x0207, cpu.pc());
+        assert_eq!(0x01, cpu.r.b); assert_eq!(0x0207, cpu.r.pc);
         cpu.exec();
-        assert_eq!(0x03, cpu.a);
+        assert_eq!(0x03, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x00, cpu.b); assert_eq!(0x020A, cpu.pc());
+        assert_eq!(0x00, cpu.r.b); assert_eq!(0x020A, cpu.r.pc);
     }
 
     #[test]
     fn test_inc_dec_r() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x3e, 0x00,         // LD A,0x00
             0x06, 0xFF,         // LD B,0xFF
@@ -502,41 +502,41 @@ use Z80::z80;
             cpu.exec();
         }
 
-        assert_eq!(0x01, cpu.a); assert!(cpu.flags == 0);
+        assert_eq!(0x01, cpu.r.a); assert!(cpu.r.f.is_empty());
         cpu.exec();
-        assert_eq!(0x00, cpu.a); assert!(cpu.flags_get_z() && cpu.flags_get_n());
+        assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO) && cpu.r.f.contains(Flags::NEGATIVE));
         cpu.exec();
-        assert_eq!(0x00, cpu.b); assert!(cpu.flags_get_z() & cpu.flags_get_h());
+        assert_eq!(0x00, cpu.r.b); assert!(cpu.r.f.contains(Flags::ZERO) & cpu.r.f.contains(Flags::HALFCARRY));
         cpu.exec();
-        assert_eq!(0xFF, cpu.b as u8); assert!(cpu.flags_get_n() & cpu.flags_get_h() & cpu.flags_get_s());
+        assert_eq!(0xFF, cpu.r.b); assert!(cpu.r.f.contains(Flags::NEGATIVE) & cpu.r.f.contains(Flags::HALFCARRY) & cpu.r.f.contains(Flags::SIGN));
         cpu.exec();
-        assert_eq!(0x10, cpu.c); assert!(cpu.flags_get_h());
+        assert_eq!(0x10, cpu.r.c); assert!(cpu.r.f.contains(Flags::HALFCARRY));
         cpu.exec();
-        assert_eq!(0x0F, cpu.c); assert!(cpu.flags_get_n() & cpu.flags_get_h());
+        assert_eq!(0x0F, cpu.r.c); assert!(cpu.r.f.contains(Flags::NEGATIVE) & cpu.r.f.contains(Flags::HALFCARRY));
         cpu.exec();
-        assert_eq!(0x0F, cpu.d); assert!(cpu.flags == 0);
+        assert_eq!(0x0F, cpu.r.d); assert!(cpu.r.f.is_empty());
         cpu.exec();
-        assert_eq!(0x0E, cpu.d); assert!(cpu.flags_get_n());
+        assert_eq!(0x0E, cpu.r.d); assert!(cpu.r.f.contains(Flags::NEGATIVE));
         cpu.exec();
-        assert_eq!(0x00, cpu.a); 
-        assert!(cpu.flags_get_n() & cpu.flags_get_s() & cpu.flags_get_c());
+        assert_eq!(0x00, cpu.r.a); 
+        assert!(cpu.r.f.contains(Flags::NEGATIVE) & cpu.r.f.contains(Flags::SIGN) & cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x80 as u8, cpu.e as u8); assert!(cpu.flags_get_s() & cpu.flags_get_c());
+        assert_eq!(0x80, cpu.r.e); assert!(cpu.r.f.contains(Flags::SIGN) & cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x7F, cpu.e); assert!(cpu.flags_get_n() & cpu.flags_get_h() & cpu.flags_get_c());
+        assert_eq!(0x7F, cpu.r.e); assert!(cpu.r.f.contains(Flags::NEGATIVE) & cpu.r.f.contains(Flags::HALFCARRY) & cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x3F, cpu.get_hl_h()); assert!(cpu.flags_get_c());
+        assert_eq!(0x3F, cpu.r.h); assert!(cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x3E, cpu.get_hl_h()); assert!(cpu.flags_get_n() & cpu.flags_get_c());
+        assert_eq!(0x3E, cpu.r.h); assert!(cpu.r.f.contains(Flags::NEGATIVE) & cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x24, cpu.get_hl_l()); assert!(cpu.flags_get_c());
+        assert_eq!(0x24, cpu.r.l); assert!(cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x23, cpu.get_hl_l()); assert!(cpu.flags_get_n() & cpu.flags_get_c());        
+        assert_eq!(0x23, cpu.r.l); assert!(cpu.r.f.contains(Flags::NEGATIVE) & cpu.r.f.contains(Flags::CARRY));        
     }
 
     #[test]
     fn test_adc_r() {
-        let mut cpu = z80::Z80::new(Memory::new_64k(TileDecoder::new(1)));
+        let mut cpu = z80::Z80::new(Memory::new_64k());
         let prog = [
             0x3E, 0x00,         // LD A,0x00
             0x06, 0x41,         // LD B,0x41
@@ -556,34 +556,34 @@ use Z80::z80;
         ];
         cpu.mem.write(0x0000, &prog);
         cpu.exec();
-        assert_eq!(0x00, cpu.a);
+        assert_eq!(0x00, cpu.r.a);
         cpu.exec();
-        assert_eq!(0x41, cpu.b);
+        assert_eq!(0x41, cpu.r.b);
         cpu.exec();
-        assert_eq!(0x61, cpu.c);
+        assert_eq!(0x61, cpu.r.c);
         cpu.exec();
-        assert_eq!(0x81, cpu.d as u8);
+        assert_eq!(0x81, cpu.r.d);
         cpu.exec();
-        assert_eq!(0x41, cpu.e);
+        assert_eq!(0x41, cpu.r.e);
         cpu.exec();
-        assert_eq!(0x61, cpu.get_hl_h());
+        assert_eq!(0x61, cpu.r.h);
         cpu.exec();
-        assert_eq!(0x81 as u8, cpu.get_hl_l() as u8);
+        assert_eq!(0x81, cpu.r.l);
         cpu.exec();
-        assert_eq!(0x00, cpu.a); assert!(cpu.flags_get_z());
+        assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO));
         cpu.exec();
-        assert_eq!(0x41, cpu.a); assert_eq!(cpu.flags, 0);
+        assert_eq!(0x41, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
         cpu.exec();
-        assert_eq!(0xA2, cpu.a as u8); assert!(cpu.flags_get_s() && cpu.flags_get_pe());
+        assert_eq!(0xA2, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN) && cpu.r.f.contains(Flags::PARITY));
         cpu.exec();
-        assert_eq!(0x23, cpu.a); assert!(cpu.flags_get_c());
+        assert_eq!(0x23, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x65, cpu.a); assert_eq!(cpu.flags, 0);
+        assert_eq!(0x65, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
         cpu.exec();
-        assert_eq!(0xC6, cpu.a as u8); assert!(cpu.flags_get_s() && cpu.flags_get_pe());
+        assert_eq!(0xC6, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN) && cpu.r.f.contains(Flags::PARITY));
         cpu.exec();
-        assert_eq!(0x47, cpu.a); assert!(cpu.flags_get_c());
+        assert_eq!(0x47, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY));
         cpu.exec();
-        assert_eq!(0x49, cpu.a); assert_eq!(cpu.flags, 0);
+        assert_eq!(0x49, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
     }
 }

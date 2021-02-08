@@ -5,7 +5,7 @@ pub struct Memory {
   pub work_ram: Vec<u8>,
   pub tile_rom: Vec<u8>,
   pub pixel_buffer: Vec<u32>,
-  decoder:TileDecoder,
+  decoder:Option<TileDecoder>,
   pub sprite_rom: Vec<u8>,
   pub video_ram: Vec<u8>,
 }
@@ -16,21 +16,21 @@ impl Memory {
       Memory{
         work_ram: Vec::new(),
         tile_rom: Vec::new(),
-        decoder: tile_decoder,
+        decoder: Some(tile_decoder),
         sprite_rom: Vec::new(),
         pixel_buffer: vec![0; 64512],
         video_ram: vec![0;2048],
       }
     }
 
-    pub fn new_64k(tile_decoder: TileDecoder) -> Memory {
+    pub fn new_64k() -> Memory {
       Memory { 
         work_ram: vec![0; 65536],
         tile_rom: vec![0; 65536],
         video_ram: vec![0; 1024],
         pixel_buffer: vec![0],
         sprite_rom: vec![0; 1024],
-        decoder: tile_decoder
+        decoder: None
       }
     }
 
@@ -41,7 +41,7 @@ impl Memory {
         video_ram: vec![0; 1024],
         pixel_buffer: vec![0],
         sprite_rom: vec![0; 1024],
-        decoder: tile_decoder
+        decoder: None
       }
     }
 
@@ -51,7 +51,10 @@ impl Memory {
           let offset = address - 0x4000;
           // println!("Video RAM: accessed {} with {}", format!("{:#x}", offset), format!("{:#x}", data));
           self.video_ram[offset as usize] = data;
-          self.decoder.decode_tile(offset as usize, &self.tile_rom, data as usize, &mut self.pixel_buffer);
+          match &self.decoder {
+            Some(decoder) => decoder.decode_tile(offset as usize, &self.tile_rom, data as usize, &mut self.pixel_buffer),
+            None => {}
+          }
         },
         0x4400..=0x47ff => {
           let offset = address - 0x4000;
@@ -67,10 +70,10 @@ impl Memory {
             println!("Sound tests at {} with {}", format!("{:#x}", address), data)
         },
         0x5060..=0x506f => {    
-          match self.work_ram.get(0x4ff0 ..0x4fff) {
-            Some(sprite_positions) => self.decoder.decode_sprite(address as usize, sprite_positions, &self.sprite_rom, data as usize, &mut self.pixel_buffer),
-            None => println!("Error decoding Sprite positions?")
-          }
+          // match self.work_ram.get(0x4ff0 ..0x4fff) {
+          //   Some(sprite_positions) => self.decoder.decode_sprite(address as usize, sprite_positions, &self.sprite_rom, data as usize, &mut self.pixel_buffer),
+          //   None => println!("Error decoding Sprite positions?")
+          // }
         },
         0x5070..=0x50bf => {    
           println!("??? {} with {}", format!("{:#x}", address), data)
@@ -109,14 +112,13 @@ impl Memory {
       }
     }
 
-    pub fn r8(&self, addr: u16) -> i8 {
-      let address = (addr & 0x7FFF) as u16;
+    pub fn r8(&self, addr: u16) -> u8 {
       match addr {
         0x5000 => { // Read IN0: Joystick and coin slot
           0b0000_0000 
         },
         0x5040 => {
-          0b0000_0000 // IN1
+          0b0001_0000 // IN1
         },
         0x5080 => {
           0b0001_0011 //Dip-Switch byte
@@ -128,7 +130,7 @@ impl Memory {
           println!("Reading Palette RAM");
           0x7f
         },
-        _ => self.work_ram[address as usize] as i8
+        _ => self.work_ram[addr as usize]
       }
   }
 }
