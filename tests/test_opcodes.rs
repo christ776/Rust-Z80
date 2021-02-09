@@ -41,7 +41,7 @@ use Z80::registers::{ Register16Bit, Flags };
       cpu.mem.write(0x0100, &prog);
 
       cpu.r.a = 0x33;
-    //   cpu.r.set_u16(Register16Bit::HL, 0x1000);
+      cpu.r.set_u16(Register16Bit::HL, 0x1000);
       cpu.r.pc = 0x0100;
       cpu.exec();
       assert_eq!(0x33, cpu.mem.r8(0x1000));
@@ -266,7 +266,6 @@ use Z80::registers::{ Register16Bit, Flags };
         cpu.r.pc = 0x0204;
         cpu.exec();
         assert_eq!(0x020A, cpu.r.pc);
-        // cpu.exec();
         assert_eq!(0xFFFD, cpu.r.sp);
         println!("Memory contents at 0xFFFD {}", format!("{:#x}", cpu.mem.r16(0xFFFD)));
         assert_eq!(0x0207, cpu.mem.r16(0xFFFD));

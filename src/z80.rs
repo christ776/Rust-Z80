@@ -214,9 +214,12 @@ impl Z80 {
     self.mem.w16(addr, val);
   }
 
-  pub fn step(&mut self) -> u16 {
+  pub fn step(&mut self) {
     self.r.pc += 1;
-    self.r.pc
+  }
+
+  pub fn step_n(&mut self, n: u16) {
+    self.r.pc += n;
   }
 
   pub fn exec(&mut self) -> u8 {
@@ -230,7 +233,7 @@ impl Z80 {
       self.call(interrup_handler_addr);
     }
 
-    let op = self.mem.r8(self.r.pc) as u8;
+    let op = self.mem.r8(self.r.pc);
   
     match op {
         0x00 => { self.nop(); },
@@ -246,7 +249,7 @@ impl Z80 {
         0x09 => { self.add_hl_ss(BC, HL) },
         0x19 => { self.add_hl_ss(DE, HL) },
         0x29 => { self.add_hl_ss(HL, HL) },
-        0x10 => { self.djnz() },
+        0x10 => { self.djnz(NextU8) },
         0x02 => { self.ld_8_nn(Address::BC, A) },
         0x12 => { self.ld_8_nn(Address::DE, A) },
         0x18 => { self.jr_e() },
@@ -281,7 +284,10 @@ impl Z80 {
         0x2f => { self.cpl() },
         0x32 => { self.ld_nn_a(A)},
         0x22 => { self.ld_nn_hl()},
-        0x36 => { self.ld_hl_r(Register16Bit::HL, NextU8)}
+        0x36 => { 
+          self.ld_hl_r(Register16Bit::HL, NextU8);
+          self.step();
+        },
         0x3a => { self.ld_a_nn()},
         0x06 => { self.ld_r_r(B, NextU8)},
         0x0e => { self.ld_r_r(C, NextU8)},
@@ -338,12 +344,12 @@ impl Z80 {
         0x6e => { self.ld_r_hl(L, Address::HL)},
         0x7e => { self.ld_r_hl(A, Address::HL)},
         0x70 => { self.ld_hl_r(Register16Bit::HL,B)},
-        0x73 => { self.ld_hl_r(Register16Bit::HL,E)},
-        0x77 => { self.ld_hl_r(Register16Bit::HL,C)},
-        0x71 => { self.ld_hl_r(Register16Bit::HL,A)},
+        0x71 => { self.ld_hl_r(Register16Bit::HL,C)},
         0x72 => { self.ld_hl_r(Register16Bit::HL,D)},
+        0x73 => { self.ld_hl_r(Register16Bit::HL,E)},
         0x74 => { self.ld_hl_r(Register16Bit::HL,H)},
         0x75 => { self.ld_hl_r(Register16Bit::HL,L)},
+        0x77 => { self.ld_hl_r(Register16Bit::HL,A)},
         0x76 => { self.halt()},
         0x80 => { self.add_a_r(B)},
         0x81 => { self.add_a_r(C)},
@@ -384,12 +390,15 @@ impl Z80 {
         0xc8 => {self.ret_cc(Condition::ZERO)},
         0xd0 => {self.ret_cc(Condition::NOTCARRY)},
         0xd8 => {self.ret_cc(Condition::CARRY)},
-        0xe0 => {self.ret_cc(Condition::PARITYODD)},
-        0xe8 => {self.ret_cc(Condition::PARITYEVEN)},
+        0xe0 => {self.ret_cc(Condition::PARITYEVEN)},
+        0xe8 => {self.ret_cc(Condition::PARITYODD)},
         0xf0 => {self.ret_cc(Condition::POSITIVE)},
         0xf8 => {self.ret_cc(Condition::NEGATIVE)},
         0xc3 => { self.jmp(NextU16); },
-        0xc6 => { self.add_a_r(NextU8); },
+        0xc6 => {
+           self.add_a_r(NextU8); 
+           self.step();
+        },
         0xc9 => {self.ret()},
         0xcb => { 
           let op = self.mem.r8(self.r.pc);
@@ -409,11 +418,18 @@ impl Z80 {
 
           }
          },
-        0xcd => { self.call(self.r.pc) },
+        0xcd => { 
+          let addr = self.next_u16();
+          self.call(addr); 
+        },
         0xd3 => { self.out(NextU8) },
-        0xd6 => {self.sub_r(NextU8)},
+        0xd6 => {
+          self.sub_r(NextU8);
+          self.step();
+        },
         0xdd => {
-          let op = self.mem.r8(self.r.pc);
+          let op = self.next_u8();
+          self.step();
           match op {
             0x21 => { self.ld_16_nn(IX, NextU16) },
             0x77 | 0x7e => { self.ld_ix_plus_d_r(IX, NextU8) }
@@ -424,14 +440,15 @@ impl Z80 {
             0x29 => { self.add_ix_pp(IX, IX) },
             0x39 => { self.add_ix_pp(SP, IX) },
             0xE5 => { self.push_16(IX)},
-            0xE1 => { self.pop_16(SP, IY)},
+            0xE1 => { self.pop_16(SP, IX)},
             0x35 => { self.dec_ix_n(IX, NextU8) }
             _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
           }
         },
         0xeb => {self.ex_de_hl(DE, HL)},
         0xed => {
-            let op = self.mem.r8(self.r.pc);
+            let op = self.next_u8();
+            self.step();
             match op {
               0x43 => { self.ed(BC, NextU16) },
               0x53 => { self.ed(DE, NextU16) },
@@ -441,40 +458,41 @@ impl Z80 {
             }
         },
         0xfd => {
-          let op = self.mem.r8(self.r.pc);
+          let op = self.next_u8();
+          self.step();
           match op {
             0x21 => { self.ld_16_nn(IY, NextU16) },
             0x36 => { self.ld_16_plus_d_n(IY) },
             0x46 => { 
-              self.r.pc += 1;
+              self.r.pc += 2;
               self.ld_r_16_d(B, IX, NextU8)
             },
             0x4e => { 
-              self.r.pc += 1;
+              self.r.pc += 2;
               self.ld_r_16_d(C, IX, NextU8)
             },
             0x56 => { 
-              self.r.pc += 1;
+              self.r.pc += 2;
               self.ld_r_16_d(D, IX, NextU8)
             },
             0x5e => { 
-              self.r.pc += 1;
+              self.r.pc += 2;
               self.ld_r_16_d(E, IX, NextU8)
             },
             0x66 => { 
-              self.r.pc += 1;
+              self.r.pc += 2;
               self.ld_r_16_d(H, IX, NextU8)
             },
             0x6e => { 
-              self.r.pc += 1;
+              self.r.pc += 2;
               self.ld_r_16_d(L, IX, NextU8)
             },
             0x7e => { 
-              self.r.pc += 1;
+              self.r.pc += 2;
               self.ld_r_16_d(A, IX, NextU8)
             },
             0xE5 => { self.push_16(IY)},
-            0xE1 => { self.pop_16(SP, IX)},
+            0xE1 => { self.pop_16(SP, IY)},
             _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
           }
         },
@@ -496,8 +514,8 @@ impl Z80 {
         0xcc => { self.call_cc_nn(Condition::ZERO, NextU16) },
         0xd4 => { self.call_cc_nn(Condition::NOTCARRY, NextU16) },
         0xdc => { self.call_cc_nn(Condition::CARRY, NextU16) },
-        0xe4 => { self.call_cc_nn(Condition::PARITYODD, NextU16) },
-        0xec => { self.call_cc_nn(Condition::PARITYEVEN, NextU16) },
+        0xe4 => { self.call_cc_nn(Condition::PARITYEVEN, NextU16) },
+        0xec => { self.call_cc_nn(Condition::PARITYODD, NextU16) },
         0xf4 => { self.call_cc_nn(Condition::POSITIVE, NextU16) },
         0xfc => { self.call_cc_nn(Condition::NEGATIVE, NextU16) },
         0xc5 => { self.push_16(BC) },
@@ -514,7 +532,10 @@ impl Z80 {
         0xff => { self.rst_p(0x38) },
         0xf9 => { self.ld_sp_hl(SP, HL) },
         0xfb => { self.ei() },
-        0xfe => { self.cp(NextU8)},
+        0xfe => { 
+          self.cp(NextU8);
+          self.step();
+        },
         // CP
         0xBF => self.cp(A),
         0xB8 => self.cp(B),
@@ -525,7 +546,6 @@ impl Z80 {
         0xBD => self.cp(L),
         _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); },
     }
-    self.step();
     16
   }
 
@@ -606,8 +626,10 @@ impl Z80 {
     let result = self.r.a.wrapping_sub(value);
     self.r.f = Flags::ZERO.check(result == 0) |
                 Flags::NEGATIVE |
+                Flags::SIGN.check(result & 0x80 != 0) |
                 Flags::HALFCARRY.check((self.r.a & 0xF) < (value & 0xF)) |
                 Flags::CARRY.check(self.r.a < value);
+    self.step();
   }
 
   /**
@@ -720,6 +742,7 @@ impl Z80 {
     w.write_u8(self, result);
     self.step();
     self.step();
+    self.step();
   }
 
   #[inline]
@@ -728,6 +751,7 @@ impl Z80 {
     let value = baseaddr.read_u16(self);
     let result = self.mem.r8(value.wrapping_add(displacement));
     self.r.a += result;
+    self.step();
     self.step();
     self.step();
   }
@@ -742,16 +766,20 @@ impl Z80 {
 
   #[inline]
   fn rrca<RW: WriteU8 + ReadU8>(&mut self, rw: RW) {
-    let r = rw.read_u8(self).rotate_right(1);
-    self.r.f = Flags::CARRY.check(r & 0x01 == 1);
+    let value = rw.read_u8(self);
+    let r = value.rotate_right(1);
+    self.r.f = Flags::CARRY.check(value & 0x01 == 1);
     rw.write_u8(self, r);
+    self.step();
   }
 
   #[inline]
   fn rlca<RW: WriteU8 + ReadU8>(&mut self, rw: RW) {
-    let r = rw.read_u8(self).rotate_left(1);
-    self.r.f = Flags::CARRY.check(r & 0x01 == 1);
+    let value = rw.read_u8(self);
+    let r = value.rotate_left(1);
+    self.r.f = Flags::CARRY.check(value & 0x80 != 0);
     rw.write_u8(self, r);
+    self.step();
   }
 
   #[inline]
@@ -779,6 +807,8 @@ impl Z80 {
   fn ret_cc(&mut self, condition: Condition) {
     if condition.check(self.r.f) {
       self.increment_sp_by_2();
+    } else {
+      self.step();
     }
   }
 
@@ -787,13 +817,26 @@ impl Z80 {
 
     let value = rw.read_u8(self);
     let result = self.r.a.wrapping_sub(value);
-    self.r.a = result;
-
+    
+    let mut borrow = false;
+    for mask in [0b000_0001, 0b0000_0010, 0b0000_0100, 0b0000_1000,
+    0b0001_0000, 0b0010_0000, 0b0100_0000, 0b1000_0000].iter() {
+      
+      if (value & mask) > (self.r.a & mask) {
+        borrow = true;
+        break;
+      }
+    }
+    
     let half_carry = (self.r.a & 0xF) + (value & 0xF) > 0xF;
     self.r.f = Flags::ZERO.check(result == 0) | 
-        Flags::HALFCARRY.check(half_carry) | Flags::NEGATIVE | 
-        Flags::SIGN.check(result & 0x80 != 0) |
-        Flags::CARRY.check(self.r.a < value);
+    Flags::HALFCARRY.check(half_carry) | Flags::NEGATIVE | 
+    Flags::SIGN.check(result & 0x80 != 0) |
+    Flags::PARITY.check(result > 0x80) |
+    Flags::CARRY.check(borrow);
+    
+    self.r.a = result;
+    self.step();
   }
 
   #[inline]
@@ -808,7 +851,6 @@ impl Z80 {
   }
 
   fn halt(&mut self) {
-    self.r.pc -= 1;
     self.halted = true;
   }
 
@@ -819,6 +861,7 @@ impl Z80 {
     let value = r.read_u8(self);
     w.write_u8(self, value);
 
+    self.step();
     self.step();
   }
 
@@ -850,6 +893,7 @@ impl Z80 {
   fn ld_r_hl<W: WriteU8, R: ReadU8>(&mut self, w: W, r: R) {
     let data = r.read_u8(self);
     w.write_u8(self, data);
+    self.step();
   }
 
   #[inline]
@@ -884,14 +928,20 @@ impl Z80 {
                 Flags::CARRY.check(carry) | Flags::SIGN.check(result & 0x80 != 0);
                 
     self.r.a = result;
+    self.step();
   }
 
   #[inline]
   fn dec_r<RW: ReadU8 + WriteU8>(&mut self, rw: RW) {
       let value = rw.read_u8(self).wrapping_sub(1);
+      let a = rw.read_u8(self);
+
       rw.write_u8(self, value);
       self.r.f = Flags::NEGATIVE | Flags::SIGN.check(value & 0x80 != 0) 
-        | Flags::ZERO.check(value == 0) | Flags::PARITY.check(value > 0x80);
+        | Flags::ZERO.check(value == 0) |
+        Flags::HALFCARRY.check((a & 0xF) < (value & 0xF)) |
+        Flags::PARITY.check(value > 0x80) | 
+        (Flags::CARRY & self.r.f);
 
       self.step();
   }
@@ -916,9 +966,11 @@ impl Z80 {
 
       let half_carry = (self.r.a & 0xF) + (value & 0xF) > 0xF;
       self.r.f = Flags::ZERO.check(result == 0) |
-                  Flags::HALFCARRY.check(half_carry) |
-                  Flags::CARRY.check(carry);
-
+                 Flags::SIGN.check(result & 0x80 != 0) |
+                 Flags::HALFCARRY.check(half_carry) |
+                 Flags::PARITY.check(result > 0x80) |
+                 Flags::CARRY.check(carry);
+      
       self.step();
   }
 
@@ -926,23 +978,23 @@ impl Z80 {
   fn push_16<R: ReadU16>( &mut self, r: R) {
     let value = r.read_u16(self);
     self.push(value);
+    self.step();
   }
 
   #[inline]
   fn call_cc_nn<R: ReadU16>(&mut self, condition: Condition, addr: R) {
     if condition.check(self.r.f) {
       let pc = self.r.pc;
-      self.push(pc + 2);
+      self.push(pc + 3);
       self.r.pc = addr.read_u16(self);
     } else {
-      self.step();
-      self.step();
+      self.step_n(3);
     }
   }
 
   #[inline]
   fn call(&mut self, addr: u16) {
-      let pc = self.r.pc + 2;
+      let pc = self.r.pc + 3;
       self.push(pc);
       self.r.pc = addr;
   }
@@ -1029,18 +1081,21 @@ impl Z80 {
     let address = addr.read_u16(self);
     let value = r.read_u8(self);
     self.mem.w8(address, value);
+    self.step();
   }
 
   #[inline]
   pub fn inc_r<RW: ReadU8 + WriteU8>(&mut self, rw: RW) {
       let value = rw.read_u8(self);
-      let new_value = value.wrapping_add(1);
-      rw.write_u8(self, new_value);
+      let result = value.wrapping_add(1);
+      rw.write_u8(self, result);
 
       // update flags
-      self.r.f = Flags::ZERO.check(new_value == 0) |
+      self.r.f = Flags::ZERO.check(result == 0) |
       Flags::HALFCARRY.check(value & 0xF == 0xF) |
+      Flags::SIGN.check(result & 0x80 != 0) |
       (Flags::CARRY & self.r.f);
+      self.step();
   }
 
   #[inline]
@@ -1055,9 +1110,11 @@ impl Z80 {
   pub fn jr_conditional(&mut self, condition: Condition) {
       if condition.check(self.r.f) {
           let addr = self.r.pc;
-          let offset = self.mem.r8(addr);
-          self.r.pc = (addr -1).wrapping_add(offset as u16);
+          let offset = self.next_u8() as i8;
+          self.r.pc = addr.wrapping_add(offset as u16);
+          self.step_n(2);
       } else {
+        self.step();
         self.step();
       }
   }
@@ -1065,8 +1122,8 @@ impl Z80 {
   #[inline]
   pub fn jr_e(&mut self) {
     let addr = self.r.pc;
-    let offset = self.mem.r8(addr);
-    self.r.pc = (addr -1).wrapping_add(offset as u16);
+    let offset = self.mem.r8(addr)  as i8;
+    self.r.pc = addr.wrapping_add(offset as u16);
   }
 
   pub fn nop(&mut self) {
@@ -1080,18 +1137,18 @@ impl Z80 {
   }
 
   #[inline]
-  pub fn djnz(&mut self) {
+  pub fn djnz<R: ReadU8>(&mut self, r: R) {
     let pc = self.r.pc;
     let b = self.r.b;
-    let displacement = self.mem.r8(self.r.pc) as i16;
+    let displacement = r.read_u8(self) as i8;
     let r = b.wrapping_sub(1);
     if r == 0 {
       self.step();
-    } else {
-      self.r.pc -= 1;
-      self.r.pc = (pc as i16 + displacement) as u16;
       self.step();
-      // self.step();
+    } else {
+      self.r.pc = pc.wrapping_add(displacement as u16);
+      self.step();
+      self.step();
     }
     self.r.b = r;
   }

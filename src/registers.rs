@@ -17,7 +17,9 @@ bitflags!{
       const CARRY = 0x01;
       const NEGATIVE = 0x02;
       const PARITY = 0x04;
+      const COPY_BIT_3 = 0x08;
       const HALFCARRY = 0x10;
+      const COPY_BIT_5 = 0x20;
       const ZERO = 0x40;
       const SIGN = 0x80;
   }
@@ -127,8 +129,8 @@ impl Registers {
           DE2 => { self.d2 = (value >> 8) as u8; self.e2 = value as u8; },
           HL => { self.h = (value >> 8) as u8; self.l = value as u8; },
           HL2 => { self.h2 = (value >> 8) as u8; self.l2 = value as u8; },
-          IX => { self.IXL = (value >> 8) as u8; self.IXH = value as u8; },
-          IY => { self.IYL = (value >> 8) as u8; self.IYH = value as u8; },
+          IX => { self.IXH = (value >> 8) as u8; self.IXL = value as u8; },
+          IY => { self.IYH = (value >> 8) as u8; self.IYL = value as u8; },
           SP => self.sp = value,
       }
   }
