@@ -34,7 +34,7 @@ impl Memory {
       }
     }
 
-    pub fn new_1k(tile_decoder: TileDecoder) -> Memory {
+    pub fn new_1k(_tile_decoder: TileDecoder) -> Memory {
       Memory { 
         work_ram: vec![0; 1024],
         tile_rom: vec![0; 1024],

@@ -383,19 +383,21 @@ use Z80::registers::{ Register16Bit, Flags };
         cpu.exec();
         assert_eq!(0x7f, cpu.r.l);
         cpu.exec();
-        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO) && cpu.r.f.contains(Flags::NEGATIVE));
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO | Flags::NEGATIVE));
         cpu.exec();
-        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY) && cpu.r.f.contains(Flags::SIGN) && cpu.r.f.contains(Flags::NEGATIVE));
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY | Flags::NEGATIVE | Flags::SIGN));
         cpu.exec();
         assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::NEGATIVE));
         cpu.exec();
-        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY));
-        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, SF|HF|NF|CF));
-        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, HF|NF|CF));
-        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, HF|NF|CF));
-        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, SF|VF|NF|CF));
-        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, SF|HF|NF|CF));
-        // assert_eq!(0x04, cpu.r.a); assert!(flags(&cpu, ZF|NF));
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY | Flags::NEGATIVE));
+        cpu.exec();
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY | Flags::NEGATIVE));
+        cpu.exec();
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY | Flags::NEGATIVE | Flags::SIGN | Flags::PARITY));
+        cpu.exec();
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::CARRY | Flags::NEGATIVE | Flags::SIGN));
+        cpu.exec();
+        assert_eq!(0x04, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO | Flags::NEGATIVE));
     }
 
     #[test]
