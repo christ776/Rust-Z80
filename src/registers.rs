@@ -37,20 +37,18 @@ impl Flags {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Register8Bit {
-    A, B, C, D, E, H, I, L, A2,
+    A, B, C, D, E, H, I, L,
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum Register16Bit {
-    AF, BC, DE, HL, SP, IX, IY, AF2, BC2, DE2, HL2 
+    AF, BC, DE, HL, SP, IX, IY, BC2, DE2, HL2 
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct Registers {
     pub a: u8,
-    pub a2: u8,
     pub f: Flags,
-    pub f2: Flags,
     pub b: u8,
     pub b2: u8,
     pub c: u8,
@@ -76,9 +74,7 @@ impl Registers {
   pub fn new() -> Registers {
       Registers {
           a: 0x0,
-          a2: 0x0,
           f: Flags::empty(),
-          f2: Flags::empty(),
           b: 0x00,
           b2: 0x00,
           c: 0x0,
@@ -105,7 +101,6 @@ impl Registers {
       use self::Register16Bit::*;
       match reg {
           AF => ((self.a as u16) << 8) | (self.f.bits() as u16),
-          AF2 => ((self.a2 as u16) << 8) | (self.f2.bits() as u16),
           BC => ((self.b as u16) << 8) | (self.c as u16),
           BC2 => ((self.b2 as u16) << 8) | (self.c2 as u16),
           DE => ((self.d as u16) << 8) | (self.e as u16),
@@ -122,7 +117,6 @@ impl Registers {
       use self::Register16Bit::*;
       match reg {
           AF => { self.a = (value >> 8) as u8; self.f = Flags::from_bits_truncate(value as u8) },
-          AF2 => { self.a2 = (value >> 8) as u8; self.f2 = Flags::from_bits_truncate(value as u8) },
           BC => { self.b = (value >> 8) as u8; self.c = value as u8; },
           BC2 => { self.b2 = (value >> 8) as u8; self.c2 = value as u8; },
           DE => { self.d = (value >> 8) as u8; self.e = value as u8; },
@@ -136,17 +130,17 @@ impl Registers {
   }
 }
 
-impl fmt::Display for Registers {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "pc:{:04x} sp:{:04x} \
-                   a:{:02x} f:{:04b} \
-                   b:{:02x} c:{:02x} \
-                   d:{:02x} e:{:02x} \
-                   h:{:02x} l:{:02x}",
-                   self.pc, self.sp,
-                   self.a, self.f.bits() >> 4,
-                   self.b, self.c,
-                   self.d, self.e,
-                   self.h, self.l)
-    }
-}
+// impl fmt::Display for Registers {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "pc:{:04x} sp:{:04x} \
+//                    a:{:02x} f:{:04b} \
+//                    b:{:02x} c:{:02x} \
+//                    d:{:02x} e:{:02x} \
+//                    h:{:02x} l:{:02x}",
+//                    self.pc, self.sp,
+//                    self.a, self.f.bits() >> 4,
+//                    self.b, self.c,
+//                    self.d, self.e,
+//                    self.h, self.l)
+//     }
+// }

@@ -156,14 +156,20 @@ impl World {
         World::load_rom_mut(&String::from("./pacman/pacman.6f"), &mut mem.work_ram);
         World::load_rom_mut(&String::from("./pacman/pacman.6h"), &mut mem.work_ram);
         World::load_rom_mut(&String::from("./pacman/pacman.6j"), &mut mem.work_ram);
-        //Tile ROMS
+        //Tile ROM
         World::load_rom_mut(&String::from("./pacman/pacman.5e"), &mut mem.tile_rom);
+        //Sprite ROM
         World::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut mem.sprite_rom);
 
         // Working RAM ... it's a bit of a hack for now
         // &mem.work_ram.append(&mut video_ram);
         let mut working_ram:Vec<u8> = vec![0; 4196];
         &mem.work_ram.append(&mut working_ram);
+        // ; skip the checksum test, change 30fb to: ; HACK 0
+        // ; 30fb  c37431    jp      #3174		; run the game!
+        mem.work_ram[0x30fb as usize] = 0xc3;
+        mem.work_ram[0x30fc as usize] = 0x74;
+        mem.work_ram[0x30fd as usize] = 0x31;
         mem
     }
 

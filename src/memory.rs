@@ -61,11 +61,6 @@ impl Memory {
           self.video_ram[offset as usize] = data;
           // println!("Palette RAM: accessed {} with {}", format!("{:#x}", address), data);
         },
-        // 0x5000..=0x5007=> {
-        //   // println!("IO: accessed {} with {}", format!("{:#x}", address), data);
-        // },
-        // 0x50c0..=0x50ff => 
-        //   println!("Kicking the watchdog at {} with {}", format!("{:#x}", address), data),
         0x5040..=0x505f => {    
             println!("Sound tests at {} with {}", format!("{:#x}", address), data)
         },
@@ -81,7 +76,7 @@ impl Memory {
         0x50c0..=0x50ff => {    
           // println!("Watchdog reset")
         },
-        _ => self.work_ram[(address & 0x7FFF) as usize] = data,
+        _ => self.work_ram[address as usize] = data,
       }
     }
 
@@ -104,9 +99,8 @@ impl Memory {
       match addr {
         0x5555 => 0,
         _ => {
-          let address = addr & 0x7FFF;
-          let l:u16 = self.work_ram[address as usize].into();
-          let h: u16 = self.work_ram[(address +1) as usize].into();
+          let l:u16 = self.work_ram[addr as usize].into();
+          let h: u16 = self.work_ram[(addr +1) as usize].into();
           h << 8 | l
         }
       }
@@ -115,17 +109,14 @@ impl Memory {
     pub fn r8(&self, addr: u16) -> u8 {
       match addr {
         0x5000 => { // Read IN0: Joystick and coin slot
-          0b0000_0000 
+          0b1111_1111
         },
         0x5040 => {
-          0b0001_0000 // IN1
+          0b1111_1111 // IN1
         },
         0x5080 => {
-          0b0001_0011 //Dip-Switch byte
+          0b1000_0001 //Dip-Switch byte
         }
-        0x5041..=0x507F => {
-          0b0000_0000 
-        }, 
         0x4400..=0x47ff => {
           println!("Reading Palette RAM");
           0x7f

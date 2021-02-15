@@ -59,6 +59,25 @@
       },
       "args": [],
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug integration test 'test_zex'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--test=test_zex",
+          "--package=Z80"
+        ],
+        "filter": {
+          "name": "test_zex",
+          "kind": "test"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
