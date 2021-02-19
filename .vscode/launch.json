@@ -44,16 +44,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug integration test 'test_opcodes'",
+      "name": "Debug integration test 'opcodes'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--test=test_opcodes",
+          "--test=opcodes",
           "--package=Z80"
         ],
         "filter": {
-          "name": "test_opcodes",
+          "name": "opcodes",
           "kind": "test"
         }
       },
@@ -73,6 +73,25 @@
         ],
         "filter": {
           "name": "test_zex",
+          "kind": "test"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug integration test 'ex 8080'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--test=ex8080",
+          "--package=Z80"
+        ],
+        "filter": {
+          "name": "ex8080",
           "kind": "test"
         }
       },

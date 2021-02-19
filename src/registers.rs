@@ -130,17 +130,17 @@ impl Registers {
   }
 }
 
-// impl fmt::Display for Registers {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(f, "pc:{:04x} sp:{:04x} \
-//                    a:{:02x} f:{:04b} \
-//                    b:{:02x} c:{:02x} \
-//                    d:{:02x} e:{:02x} \
-//                    h:{:02x} l:{:02x}",
-//                    self.pc, self.sp,
-//                    self.a, self.f.bits() >> 4,
-//                    self.b, self.c,
-//                    self.d, self.e,
-//                    self.h, self.l)
-//     }
-// }
+impl fmt::Display for Registers {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "pc:{:04x} sp:{:04x} \
+                   a:{:02x} f:{:04b} \
+                   b:{:02x} c:{:02x} \
+                   d:{:02x} e:{:02x} \
+                   h:{:02x} l:{:02x}",
+                   self.pc, self.sp,
+                   self.a, self.f.bits() >> 4,
+                   self.b, self.c,
+                   self.d, self.e,
+                   self.h, self.l)
+    }
+}

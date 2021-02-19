@@ -4,8 +4,8 @@ mod zex {
     use ::Z80::memory::Memory;
     use ::Z80::registers::{ Register16Bit };
 
-    static ZEXDOC: &'static [u8] = include_bytes!("zexdoc.com");
-    static ZEXALL: &'static [u8] = include_bytes!("zexall.com");
+    static ZEXDOC: &'static [u8] = include_bytes!("resources/zexdoc.com");
+    static ZEXALL: &'static [u8] = include_bytes!("resources/zexall.com");
 
     fn run_zex(prog: &'static [u8]) {
         let mut cpu = Z80::new(Memory::new_64k());
