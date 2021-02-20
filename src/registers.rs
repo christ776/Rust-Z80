@@ -64,10 +64,10 @@ pub struct Registers {
     pub l2: u8,
     pub sp: u16,
     pub pc: u16,
-    pub IXL : u8,
-    pub IXH: u8,
-    pub IYL: u8,
-    pub IYH: u8,
+    pub ixl : u8,
+    pub ixh: u8,
+    pub iyl: u8,
+    pub iyh: u8,
 }
 
 impl Registers {
@@ -90,10 +90,10 @@ impl Registers {
           l2: 0x0,
           sp: 0x4FBF,
           pc: 0x0,
-          IXH: 0,
-          IXL: 0,
-          IYL: 0,
-          IYH: 0
+          ixh: 0,
+          ixl: 0,
+          iyl: 0,
+          iyh: 0
       }
   }
 
@@ -106,8 +106,8 @@ impl Registers {
           DE => ((self.d as u16) << 8) | (self.e as u16),
           DE2 => ((self.d2 as u16) << 8) | (self.e2 as u16),
           HL => ((self.h as u16) << 8) | (self.l as u16),
-          IX =>  ((self.IXH as u16) << 8) | (self.IXL as u16),
-          IY =>  ((self.IYH as u16) << 8) | (self.IYL as u16),
+          IX =>  ((self.ixh as u16) << 8) | (self.ixl as u16),
+          IY =>  ((self.iyh as u16) << 8) | (self.iyl as u16),
           HL2 => ((self.h2 as u16) << 8) | (self.l2 as u16),
           SP => self.sp,
       }
@@ -123,8 +123,8 @@ impl Registers {
           DE2 => { self.d2 = (value >> 8) as u8; self.e2 = value as u8; },
           HL => { self.h = (value >> 8) as u8; self.l = value as u8; },
           HL2 => { self.h2 = (value >> 8) as u8; self.l2 = value as u8; },
-          IX => { self.IXH = (value >> 8) as u8; self.IXL = value as u8; },
-          IY => { self.IYH = (value >> 8) as u8; self.IYL = value as u8; },
+          IX => { self.ixh = (value >> 8) as u8; self.ixl = value as u8; },
+          IY => { self.iyh = (value >> 8) as u8; self.iyl = value as u8; },
           SP => self.sp = value,
       }
   }

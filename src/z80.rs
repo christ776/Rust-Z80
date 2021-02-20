@@ -12,8 +12,8 @@
 ///    d  e => de     de'
 ///    h  l => hl     hl'
 ///
-///    i       ix
-///    r       iy
+///    i       IX
+///    r       IY
 ///            sp
 ///            pc
 ///  flags (f): sz-h-pnc
@@ -332,6 +332,7 @@ impl Z80 {
          },
         0x6f => { self.ld_r_r(L,A)},
         0x44 => { self.ld_r_r(B,H)},
+        0x40 => { self.ld_r_r(B,B)},
         0x47 => { self.ld_r_r(B,A)},
         0x48 => { self.ld_r_r(C,B)},
         0x49 => { self.ld_r_r(C,C)},
@@ -496,8 +497,8 @@ impl Z80 {
             0x71 => { self.ld_16_plus_d_r(IX, C, NextU8) }
             0x72 => { self.ld_16_plus_d_r(IX, D, NextU8) }
             0x73 => { self.ld_16_plus_d_r(IX, E, NextU8) }
+            0x74 => { self.ld_16_plus_d_r(IX, H, NextU8) }
             0x75 => { self.ld_16_plus_d_r(IX, H, NextU8) }
-            0x76 => { self.ld_16_plus_d_r(IX, L, NextU8) }
             0x77 => { self.ld_16_plus_d_r(IX, A, NextU8) }
             0x7e => { self.ld_r_ix_d(IX, NextU8, A) }
             0x36 => { self.ld_16_plus_d_n(IX) }
@@ -525,14 +526,11 @@ impl Z80 {
               0x53 => { self.ed(DE, NextU16) },
               0x63 => { self.ed(HL, NextU16) },
               0x73 => { self.ed(SP, NextU16) },
-              0x7b => { 
-                self.ld_16_nn(SP, NextU16);
-                self.r.pc -=1;  
-              },
-              0x47 => { 
-                self.ld_r_r(I, A);
-                self.r.pc -=1; 
-              },
+              // 0x7b => { 
+              //   self.ld_16_nn(SP, NextU16);
+              //   self.r.pc -=1;  
+              // },
+              0x47 => { self.ld_r_r(I, A) },
               0x4a => { self.adc_16(BC) },
               0x5a => { self.adc_16(DE) },
               0x6a => { self.adc_16(HL) },
@@ -1279,8 +1277,7 @@ impl Z80 {
           self.r.pc = addr.wrapping_add(offset as u16);
           self.step_n(2);
       } else {
-        self.step();
-        self.step();
+        self.step_n(2);
       }
   }
 
@@ -1308,14 +1305,10 @@ impl Z80 {
     let b = self.r.b;
     let displacement = r.read_u8(self) as i8;
     let r = b.wrapping_sub(1);
-    if r == 0 {
-      self.step();
-      self.step();
-    } else {
+    if r != 0 {
       self.r.pc = pc.wrapping_add(displacement as u16);
-      self.step();
-      self.step();
     }
+    self.step_n(2);
     self.r.b = r;
   }
 }
