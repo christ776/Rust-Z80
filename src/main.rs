@@ -7,18 +7,23 @@
 /// meaning the byte that contains the least significant bits (LSB)
 /// comes first and is followed by the byte that contains the most significant bits (MSB) of the value.
 
+const HEIGHT: usize = 288;
+
 pub mod z80;
+pub const WIDTH: usize = 224;
+
 mod memory;
 mod gfx_decoder;
 mod pixel;
 mod gui;
 mod registers;
 
-use crate::gfx_decoder::{ Decoder, TileDecoder };
+use crate::memory::Memory;
+use crate::z80::Z80;
+use crate::memory::BoardMemory;
 use crate::gui::Gui;
 use std::time::Duration;
 use std::time::Instant;
-pub use crate::z80::*;
 
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
@@ -26,8 +31,6 @@ use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit_input_helper::WinitInputHelper;
 
-const WIDTH: usize = 224;
-const HEIGHT: usize = 288;
 
 fn main () -> Result<(), Error> {
     let event_loop = EventLoop::new();
@@ -37,11 +40,12 @@ fn main () -> Result<(), Error> {
     let mut pixels = Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture)?;
     let mut start_time = Instant::now();
     let mut last_frame = Instant::now();
-    let mut world = World::new();
+    let mut world = Machine::new();
+    world.load_roms();
     let mut input = WinitInputHelper::new();
     // Set up Dear ImGui
     let mut gui = Gui::new(&window, &pixels);
-    gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
+    // gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
 
     event_loop.run(move |event, _, control_flow| {
         // The one and only event that winit_input_helper doesn't have for us...
@@ -53,7 +57,7 @@ fn main () -> Result<(), Error> {
             let now = Instant::now();
             gui.update_delta_time(now - last_frame);
             gui.update_cpu_state(world.cpu.r.pc);
-            gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
+            // gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
             last_frame = now;
         }
 
@@ -132,45 +136,44 @@ fn main () -> Result<(), Error> {
     });
 }
 
-/// Representation of the application state. In this example, a box will bounce around the screen.
-struct World {
+struct Machine {
     cpu: Z80,
+    memory: BoardMemory,
     dt: Duration,
 }
 
-impl World {
-     /// Create a new `World` instance that can draw a moving box.
+impl Machine {    
      fn new() -> Self {
+        let memory = BoardMemory::new();
+        let dt = Duration::default();
+        let cpu = z80::Z80::new();
         Self {
-            cpu: z80::Z80::new(World::emulator_init()),
-            dt: Duration::default(),
+            cpu,
+            memory,
+            dt
         }
     }
 
-    fn emulator_init() -> Memory {
-        //alloc memory
-        let tile_decoder = TileDecoder::new(WIDTH);
-        let mut mem = Memory::new(tile_decoder);
+    fn load_roms(&mut self) {
         // Load ROM contents 
-        World::load_rom_mut(&String::from("./pacman/pacman.6e"), &mut mem.work_ram);
-        World::load_rom_mut(&String::from("./pacman/pacman.6f"), &mut mem.work_ram);
-        World::load_rom_mut(&String::from("./pacman/pacman.6h"), &mut mem.work_ram);
-        World::load_rom_mut(&String::from("./pacman/pacman.6j"), &mut mem.work_ram);
+        Machine::load_rom_mut(&String::from("./pacman/pacman.6e"), &mut self.memory.work_ram);
+        Machine::load_rom_mut(&String::from("./pacman/pacman.6f"), &mut self.memory.work_ram);
+        Machine::load_rom_mut(&String::from("./pacman/pacman.6h"), &mut self.memory.work_ram);
+        Machine::load_rom_mut(&String::from("./pacman/pacman.6j"), &mut self.memory.work_ram);
         //Tile ROM
-        World::load_rom_mut(&String::from("./pacman/pacman.5e"), &mut mem.tile_rom);
+        Machine::load_rom_mut(&String::from("./pacman/pacman.5e"), &mut self.memory.tile_rom);
         //Sprite ROM
-        World::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut mem.sprite_rom);
+        Machine::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut self.memory.work_ram);
 
         // Working RAM ... it's a bit of a hack for now
         // &mem.work_ram.append(&mut video_ram);
         let mut working_ram:Vec<u8> = vec![0; 4196];
-        &mem.work_ram.append(&mut working_ram);
+        self.memory.work_ram.append(&mut working_ram);
         // ; skip the checksum test, change 30fb to: ; HACK 0
         // ; 30fb  c37431    jp      #3174		; run the game!
-        mem.work_ram[0x30fb as usize] = 0xc3;
-        mem.work_ram[0x30fc as usize] = 0x74;
-        mem.work_ram[0x30fd as usize] = 0x31;
-        mem
+        self.memory.work_ram[0x30fb as usize] = 0xc3;
+        self.memory.work_ram[0x30fc as usize] = 0x74;
+        self.memory.work_ram[0x30fd as usize] = 0x31;
     }
 
 
@@ -188,7 +191,7 @@ impl World {
         // Trigger VBLANK interrupt? 
         while self.dt >= one_frame {
             self.dt -= one_frame / 500;
-            self.cpu.exec();
+            self.cpu.exec(&mut self.memory);
         }
 
         self.cpu.vblank();
@@ -209,18 +212,19 @@ impl World {
             }
         }
     }
-    /// Draw the `World` state to the frame buffer.
+    /// Draw the `Machine` state to the frame buffer.
     ///
     /// Assumes the default texture format: [`wgpu::TextureFormat::Rgba8UnormSrgb`]
     fn draw(&mut self, frame: &mut [u8]) {
         // Clear the screen
-        for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
+            for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
 
-            let t = self.cpu.mem.pixel_buffer[i];
-            let raw_bytes = t.to_be_bytes();
-            pixel.copy_from_slice(&raw_bytes);
+                // let t = memory.pixel_buffer[i];
+                // let raw_bytes = t.to_be_bytes();
+                // pixel.copy_from_slice(&raw_bytes);
+            }
         }
-    }
+       
 }
 
 /// Create a window for the game.

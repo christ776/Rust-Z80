@@ -7,7 +7,7 @@ pub struct TileDecoder {
 
 
 pub trait Decoder {
-  fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, tile: usize, pixel_buffer: &mut Vec<u32>);
+  fn decode_tile(&self, offset: usize, tile_rom: &[u8], tile: usize, pixel_buffer: &mut Vec<u32>);
   fn to_pixel_buffer(&self, offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>);
   fn decode_sprite(&self, address: usize, sprite_positions: &[u8], sprite_rom: &Vec<u8>,
     position_y: usize, pixel_buffer: &mut Vec<u32>); 
@@ -32,7 +32,7 @@ impl Decoder for TileDecoder {
   /// |--------
   /// | 4 | 4 |
   /// |--------
-  fn decode_tile(&self, offset: usize, tile_rom: &Vec<u8>, tile: usize, pixel_buffer: &mut Vec<u32>) {
+  fn decode_tile(&self, offset: usize, tile_rom: &[u8], tile: usize, pixel_buffer: &mut Vec<u32>) {
     let tile_offset = tile * 16;
     match &tile_rom.get(tile_offset ..tile_offset + 16) {
       Some(tile) => self.to_pixel_buffer(offset, tile, pixel_buffer),

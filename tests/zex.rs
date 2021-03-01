@@ -1,38 +1,47 @@
 mod zex {
 
     use Z80::z80::Z80;
+    use ::Z80::memory::PlainMemory;
     use ::Z80::memory::Memory;
     use ::Z80::registers::{ Register16Bit };
 
     static ZEXDOC: &'static [u8] = include_bytes!("resources/zexdoc.com");
-    static ZEXALL: &'static [u8] = include_bytes!("resources/zexall.com");
+    // static ZEXALL: &'static [u8] = include_bytes!("resources/zexall.com");
 
-    fn run_zex(prog: &'static [u8]) {
-        let mut cpu = Z80::new(Memory::new_64k());
-        cpu.mem.write(0x0100, prog);
+    #[test]
+    fn test_zex() {
+        let mut tests_passed = 0;
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        mem.write(0x0100, ZEXDOC);
         cpu.r.sp = 0xF000;
         cpu.r.pc = 0x0100;
+        /*
+        System call 5
+
+        .org $5
+            out ($0), a
+            ret
+        */
+        let code = [0xD3, 0x00, 0xC9];
+        for i in 0..code.len() {
+             mem.w8(5 + i as u16, code[i]);
+        }
+
     
         loop {
-            cpu.exec();
+            cpu.exec(&mut mem);
             match cpu.r.pc {
-                0x0005 => { cpm_bdos(&mut cpu); },
+                0x0005 => { cpm_bdos(&mut cpu, &mut tests_passed, &mem); },
                 0x0000 => { break; },
                 _ => { },
             }
         }
+
+        assert_eq!(25, tests_passed);
     }
 
-    #[test]
-    #[ignore]
-    fn test_zex() {
-        println!("Running ZEXDOC >>>");
-        run_zex(ZEXDOC);
-        // println!("Running ZEXALL >>>");
-        // run_zex(ZEXALL);
-    }
-
-    fn cpm_bdos(cpu: &mut Z80) {
+    fn cpm_bdos(cpu: &mut Z80, tests_passed: &mut u8, mem: &PlainMemory) {
         match cpu.r.c {
             2 => {
                 // output a character
@@ -43,18 +52,21 @@ mod zex {
                 let mut addr = cpu.r.get_u16(Register16Bit::DE);
                 let mut msg = String::new();
                 loop {
-                    let c = cpu.mem.r8(addr) as char;
+                    let c = mem.r8(addr) as char;
                     addr += 1;
                     if c == '$' {
                         break;
                     }
                     msg.push(c);
                 }
+                if msg.contains("OK") {
+                    *tests_passed += 1;
+                }
                 print!("{}", msg);
             },
-            _ => panic!("Unknown CP/M call {}!", cpu.r.c)
+            _ => panic!("Unknown BDOS call {}!", cpu.r.c)
             
         }
-        cpu.ret();
+        cpu.ret(mem);
     }
 }

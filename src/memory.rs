@@ -1,64 +1,107 @@
+
+use crate::WIDTH;
 use crate::gfx_decoder::Decoder;
 use crate::gfx_decoder::TileDecoder;
 
-pub struct Memory {
-  pub work_ram: Vec<u8>,
-  pub tile_rom: Vec<u8>,
-  pub pixel_buffer: Vec<u32>,
-  decoder:Option<TileDecoder>,
-  pub sprite_rom: Vec<u8>,
-  pub video_ram: Vec<u8>,
+pub trait Memory {
+  fn w16(&mut self, addr:u16, data: u16);
+  fn w8(&mut self, address:u16, data:u8);
+  fn write(&mut self, addr:u16, data: &[u8]);
+  fn r16(&self, addr: u16) -> u16;
+  fn r8(&self, addr: u16) -> u8;
+  fn new() -> Self where Self: Sized;
+  fn new_64k() -> Self where Self: Sized;
 }
 
-impl Memory {
 
-    pub fn new(tile_decoder: TileDecoder) -> Memory {
-      Memory{
+pub struct BoardMemory {
+  pub work_ram: Vec<u8>,
+  pub pixel_buffer: Vec<u32>,
+  pub tile_rom: Vec<u8>, 
+  decoder: TileDecoder,
+}
+
+pub struct PlainMemory {
+  ram: Vec<u8>
+}
+
+impl Memory for PlainMemory {
+
+  fn new() -> Self {
+    Self {
+      ram: Vec::new(),
+    }
+  }
+
+  fn new_64k() -> Self {
+    Self { 
+      ram: vec![0; 65536],
+    }
+  }
+
+  fn r16(&self, addr: u16) -> u16 {
+    match addr {
+      0x5555 => 0,
+      _ => {
+        let l:u16 = self.ram[addr as usize].into();
+        let h: u16 = self.ram[(addr +1) as usize].into();
+        h << 8 | l
+      }
+    }
+  }
+
+  fn w8(&mut self, address:u16, data:u8) {
+    self.ram[address as usize] = data;
+  }
+
+  fn write(&mut self, addr:u16, data: &[u8]) {
+    let mut offset = 0;
+    for b in data {
+        self.w8(addr + offset, *b);
+        offset += 1;
+    }
+  }
+
+  fn w16(&mut self, addr:u16, data: u16) {
+    let l = (data & 0x00FF) as u8;
+    let h = (data >> 8) as u8;
+    self.w8(addr, l);
+    self.w8(addr + 1, h);
+  }
+
+  fn r8(&self, addr: u16) -> u8 {
+     self.ram[addr as usize]
+  }
+}
+
+impl Memory for BoardMemory {
+
+    fn new() -> BoardMemory {
+      BoardMemory{
         work_ram: Vec::new(),
         tile_rom: Vec::new(),
-        decoder: Some(tile_decoder),
-        sprite_rom: Vec::new(),
+        decoder: TileDecoder::new(WIDTH),
         pixel_buffer: vec![0; 64512],
-        video_ram: vec![0;2048],
       }
     }
 
-    pub fn new_64k() -> Memory {
-      Memory { 
+    fn new_64k() -> BoardMemory {
+      BoardMemory { 
         work_ram: vec![0; 65536],
-        tile_rom: vec![0; 65536],
-        video_ram: vec![0; 1024],
+        tile_rom: vec![0],
         pixel_buffer: vec![0],
-        sprite_rom: vec![0; 1024],
-        decoder: None
+        decoder: TileDecoder::new(WIDTH)
       }
     }
 
-    pub fn new_1k(_tile_decoder: TileDecoder) -> Memory {
-      Memory { 
-        work_ram: vec![0; 1024],
-        tile_rom: vec![0; 1024],
-        video_ram: vec![0; 1024],
-        pixel_buffer: vec![0],
-        sprite_rom: vec![0; 1024],
-        decoder: None
-      }
-    }
-
-    pub fn w8(&mut self, address:u16, data:u8) {
+    fn w8(&mut self, address:u16, data:u8) {
       match address {
         0x4000..=0x43de => {
-          let offset = address - 0x4000;
-          // println!("Video RAM: accessed {} with {}", format!("{:#x}", offset), format!("{:#x}", data));
-          self.video_ram[offset as usize] = data;
-          match &self.decoder {
-            Some(decoder) => decoder.decode_tile(offset as usize, &self.tile_rom, data as usize, &mut self.pixel_buffer),
-            None => {}
-          }
+          let offset: usize = (address - 0x4000).into();
+          self.decoder.decode_tile(offset as usize, &self.tile_rom , data as usize, &mut self.pixel_buffer);
         },
         0x4400..=0x47ff => {
           let offset = address - 0x4000;
-          self.video_ram[offset as usize] = data;
           // println!("Palette RAM: accessed {} with {}", format!("{:#x}", address), data);
         },
         0x5040..=0x505f => {    
@@ -80,7 +123,7 @@ impl Memory {
       }
     }
 
-    pub fn write(&mut self, addr:u16, data: &[u8]) {
+    fn write(&mut self, addr:u16, data: &[u8]) {
       let mut offset = 0;
       for b in data {
           self.w8(addr + offset, *b);
@@ -88,25 +131,20 @@ impl Memory {
       }
     }
 
-    pub fn w16(&mut self, addr:u16, data: u16) {
+    fn w16(&mut self, addr:u16, data: u16) {
       let l = (data & 0x00FF) as u8;
       let h = (data >> 8) as u8;
       self.w8(addr, l);
       self.w8(addr + 1, h);
     }
 
-    pub fn r16(&self, addr: u16) -> u16 {
-      match addr {
-        0x5555 => 0,
-        _ => {
-          let l:u16 = self.work_ram[addr as usize].into();
-          let h: u16 = self.work_ram[(addr +1) as usize].into();
-          h << 8 | l
-        }
-      }
+    fn r16(&self, addr: u16) -> u16 {
+        let l:u16 = self.work_ram[addr as usize].into();
+        let h: u16 = self.work_ram[(addr +1) as usize].into();
+        h << 8 | l
     }
 
-    pub fn r8(&self, addr: u16) -> u8 {
+    fn r8(&self, addr: u16) -> u8 {
       match addr {
         0x5000 => { // Read IN0: Joystick and coin slot
           0b1111_1111
@@ -118,7 +156,6 @@ impl Memory {
           0b1000_0001 //Dip-Switch byte
         }
         0x4400..=0x47ff => {
-          println!("Reading Palette RAM");
           0x7f
         },
         _ => self.work_ram[addr as usize]

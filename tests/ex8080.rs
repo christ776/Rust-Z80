@@ -1,5 +1,6 @@
 mod zex {
 
+    use ::Z80::memory::PlainMemory;
     use Z80::z80::Z80;
     use ::Z80::memory::Memory;
     use ::Z80::registers::{ Register16Bit };
@@ -7,18 +8,20 @@ mod zex {
     static PROG: &'static [u8] = include_bytes!("resources/8080EX1.COM");
 
     #[test]
+    #[ignore]
     fn test_ex8080() {
         let mut tests_passed = 0;
-        let mut cpu = Z80::new(Memory::new_64k());
-        cpu.mem.write(0x0100, PROG);
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        mem.write(0x0100, PROG);
         cpu.r.sp = 0xF000;
         cpu.r.pc = 0x0100;
-        cpu.mem.work_ram[5] = 0xc9;
+        mem.w8(5, 0xc9);
     
         loop {
-            cpu.exec();
+            cpu.exec(&mut mem);
             match cpu.r.pc {
-                0x0005 => { cpm_bdos(&mut cpu, &mut tests_passed); },
+                0x0005 => { cpm_bdos(&mut cpu, &mut tests_passed, &mem); },
                 0x0000 => { break; },
                 _ => { },
             }
@@ -26,7 +29,7 @@ mod zex {
         assert_eq!(25, tests_passed);
     }
 
-    fn cpm_bdos(cpu: &mut Z80, tests_passed: &mut u8) {
+    fn cpm_bdos(cpu: &mut Z80, tests_passed: &mut u8, mem: &PlainMemory) {
         match cpu.r.c {
             2 => {
                 // output a character
@@ -37,7 +40,7 @@ mod zex {
                 let mut addr = cpu.r.get_u16(Register16Bit::DE);
                 let mut msg = String::new();
                 loop {
-                    let c = cpu.mem.r8(addr) as char;
+                    let c = mem.r8(addr) as char;
                     addr += 1;
                     if c == '$' {
                         break;
@@ -53,6 +56,6 @@ mod zex {
             _ => panic!("Unknown CP/M call {}!", cpu.r.c)
             
         }
-        cpu.ret();
+        cpu.ret(mem);
     }
 }
