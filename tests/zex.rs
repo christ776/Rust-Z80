@@ -64,7 +64,7 @@ mod zex {
                 }
                 print!("{}", msg);
             },
-            _ => panic!("Unknown BDOS call {}!", cpu.r.c)
+            _ => panic!("Unknown BDOS call {}! PC: {}", cpu.r.c, format!("{:#x}", cpu.r.pc))
             
         }
         cpu.ret(mem);

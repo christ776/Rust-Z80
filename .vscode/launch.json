@@ -63,16 +63,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug integration test 'test_zex'",
+      "name": "Debug integration test 'zex'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--test=test_zex",
+          "--test=zex",
           "--package=Z80"
         ],
         "filter": {
-          "name": "test_zex",
+          "name": "zex",
           "kind": "test"
         }
       },

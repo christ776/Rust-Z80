@@ -96,6 +96,9 @@ impl Memory for BoardMemory {
 
     fn w8(&mut self, address:u16, data:u8) {
       match address {
+        0x0000..=0x3fff => {
+          println!("Write violation")
+        },
         0x4000..=0x43de => {
           let offset: usize = (address - 0x4000).into();
           self.decoder.decode_tile(offset as usize, &self.tile_rom , data as usize, &mut self.pixel_buffer);
@@ -104,21 +107,21 @@ impl Memory for BoardMemory {
           let offset = address - 0x4000;
           // println!("Palette RAM: accessed {} with {}", format!("{:#x}", address), data);
         },
-        0x5040..=0x505f => {    
-            println!("Sound tests at {} with {}", format!("{:#x}", address), data)
-        },
-        0x5060..=0x506f => {    
-          // match self.work_ram.get(0x4ff0 ..0x4fff) {
-          //   Some(sprite_positions) => self.decoder.decode_sprite(address as usize, sprite_positions, &self.sprite_rom, data as usize, &mut self.pixel_buffer),
-          //   None => println!("Error decoding Sprite positions?")
-          // }
-        },
-        0x5070..=0x50bf => {    
-          println!("??? {} with {}", format!("{:#x}", address), data)
-        },
-        0x50c0..=0x50ff => {    
-          // println!("Watchdog reset")
-        },
+        // 0x5040..=0x505f => {    
+        //     println!("Sound tests at {} with {}", format!("{:#x}", address), data)
+        // },
+        // 0x5060..=0x506f => {    
+        //   // maOtch self.work_ram.get(0x4ff0 ..0x4fff) {
+        //   //   Some(sprite_positions) => self.decoder.decode_sprite(address as usize, sprite_positions, &self.sprite_rom, data as usize, &mut self.pixel_buffer),
+        //   //   None => println!("Error decoding Sprite positions?")
+        //   // }
+        // },
+        // 0x5070..=0x50bf => {    
+        //   println!("??? {} with {}", format!("{:#x}", address), data)
+        // },
+        // 0x50c0..=0x50ff => {    
+        //   // println!("Watchdog reset")
+        // },
         _ => self.work_ram[address as usize] = data,
       }
     }
