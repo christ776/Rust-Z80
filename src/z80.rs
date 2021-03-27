@@ -229,20 +229,22 @@ impl Z80 {
       self.enable_hw_interrupt = false;
       self.enable_int = false;
       let interrup_handler_addr = memory.r16((self.r.i as u16) << 8 | self.port_a_addr as u16);
-      self.call(interrup_handler_addr, memory);
+      let pc = self.r.pc;
+      self.push(pc, memory);
+      self.r.pc = interrup_handler_addr;
     }
 
-    let op = memory.r8(self.r.pc);
-    // println!("opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc));
+    let pc = self.r.pc;
+    let op = memory.r8(pc);
   
     match op {
         0x00 => { self.nop(); },
         0x0f => { self.rrca(A, memory) },
         0xf3 => { self.di() },
-        0x01 => { self.ld_16_nn(BC,NextU16, memory) },
-        0x11 => { self.ld_16_nn(DE,NextU16, memory) },
-        0x21 => { self.ld_16_nn(HL,NextU16, memory) },
-        0x31 => { self.ld_16_nn(SP,NextU16, memory) },
+        0x01 => { self.ld_dd_nn(BC,NextU16, memory) },
+        0x11 => { self.ld_dd_nn(DE,NextU16, memory) },
+        0x21 => { self.ld_dd_nn(HL,NextU16, memory) },
+        0x31 => { self.ld_dd_nn(SP,NextU16, memory) },
         0x07 => {self.rlca(A, memory) },
         0x08 => { self.ex_ss_ss(AF, AF2, memory) },
         0x17 => {self.rla(A, memory) },
@@ -259,6 +261,7 @@ impl Z80 {
         0x30 => { self.jr_conditional(Condition::NOTCARRY, memory) },
         0x38 => { self.jr_conditional(Condition::CARRY, memory) },
         0x28 => { self.jr_conditional(Condition::ZERO, memory) },
+        0x37 => { self.scf() }
         0x5 => { self.dec_r(B, memory) },
         0x0d => { self.dec_r(C, memory) },
         0x15 => { self.dec_r(D, memory) },
@@ -286,7 +289,7 @@ impl Z80 {
         0x3c => { self.inc_r(A, memory) },
         0x2f => { self.cpl() },
         0x32 => { self.ld_nn_a(A, NextU16, memory)},
-        0x22 => { self.ld_nn_hl(NextU16, Address::HL, memory)},
+        0x22 => { self.ld_nn_hl(NextU16, HL, memory)},
         0x36 => { 
           self.ld_hl_r(Register16Bit::HL, NextU8, memory);
           self.step();
@@ -327,6 +330,7 @@ impl Z80 {
         0x8b => { self.adc_r(E, memory)},
         0x8c => { self.adc_r(H, memory)},
         0x8d => { self.adc_r(L, memory)},
+        0x8e => { self.adc_r(Address::HL, memory)},
         0x8f => { self.adc_r(A, memory)} 
         0xce => { 
           self.adc_r(NextU8, memory);
@@ -398,6 +402,7 @@ impl Z80 {
         0x93 => { self.sub_r(E, memory) },
         0x94 => { self.sub_r(H, memory) },
         0x95 => { self.sub_r(L, memory) },
+        0x96 => { self.sub_r(Address::HL, memory) },
         0x97 => { self.sub_r(A, memory) },
         0x98 => { self.sbc_r(B, memory)},
         0x99 => { self.sbc_r(C, memory)},
@@ -405,6 +410,8 @@ impl Z80 {
         0x9B => { self.sbc_r(E, memory)},
         0x9C => { self.sbc_r(H, memory)},
         0x9D => { self.sbc_r(L, memory)},
+        0x9E => { self.sbc_r(Address::HL, memory)},
+        0x9F => { self.sbc_r(A, memory)},
         0xDE => { self.sbc_r(NextU8, memory); self.step(); },
         0xa0 => {self.and_r(B, memory)},
         0xa1 => {self.and_r(C, memory)},
@@ -412,6 +419,7 @@ impl Z80 {
         0xa3 => {self.and_r(E, memory)}
         0xa4 => {self.and_r(H, memory)}
         0xa5 => {self.and_r(L, memory)},
+        0xa6 => {self.and_r(Address::HL, memory)},
         0xa7 => {self.and_r(A, memory)},
         0xe6 => { 
           self.and_r(NextU8, memory);
@@ -477,6 +485,8 @@ impl Z80 {
             0x3c => { self.srl_m(H, memory) },
             0x3d => { self.srl_m(L, memory) },
             0x3f => { self.srl_m(A, memory) }
+            0x0E => { self.rrca(Address::HL, memory)}
+            0x06 => { self.rlca(Address::HL, memory)}
             // 0x10 => { }
             _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
 
@@ -487,17 +497,20 @@ impl Z80 {
           self.call(addr, memory); 
         },
         0xd3 => { self.out(NextU8, memory) },
-        0xd6 => {
-          self.sub_r(NextU8, memory);
-          self.step();
-        },
+        0xd6 => { self.sub_r(NextU8, memory); self.step(); },
+        0xf6 => { self.or_r(NextU8, memory); self.step(); },
         0xdd => {
           let op = self.next_u8(memory);
+          let ix = self.r.get_u16(Register16Bit::IX);
+          let ix_h = (ix >> 8) as u8;
+          let ix_l = (ix & 0x00ff) as u8;
           self.step();
           match op {
+            0x21 => { self.ld_dd_nn(IX, NextU16, memory) },
+            0x22 => { self.ld_nn_hl(NextU16, IX, memory)},
             0x23 => {self.inc_ss(IX, memory)},
+            0x2a => { self.ld_dd_nn_content(IX, NextU16, memory)},
             0x2b => {self.dec_ss(IX, memory)},
-            0x21 => { self.ld_16_nn(IX, NextU16, memory) },
             0x34 => { self.inc_r_d(IX, NextU8 , memory)}
             0x70 => { self.ld_16_plus_d_r(IX, B, NextU8, memory) }
             0x71 => { self.ld_16_plus_d_r(IX, C, NextU8, memory) }
@@ -506,6 +519,29 @@ impl Z80 {
             0x74 => { self.ld_16_plus_d_r(IX, H, NextU8, memory) }
             0x75 => { self.ld_16_plus_d_r(IX, L, NextU8, memory) }
             0x77 => { self.ld_16_plus_d_r(IX, A, NextU8, memory) }
+            0x84 => { self.add_a_n(ix_h) }
+            0x85 => { self.add_a_n(ix_l) },
+            0x8c => { self.adc_n(ix_h) }
+            0x8d => { self.adc_n(ix_l) }
+            0x8e => { self.adc_ixy_d(IX, NextU8, memory) }
+            0x94 => { self.sub_n(ix_h) }
+            0x95 => { self.sub_n(ix_l) }
+            0x96 => { self.sub_ixy_d(IX, NextU8, memory) }
+            0x9C => { self.sbc_n(ix_h) }
+            0x9D => { self.sbc_n(ix_l) }
+            0x9E => { self.sbc_ixy_d(IX, NextU8, memory) }
+            0xA4 => { self.and_n(ix_h) }
+            0xA5 => { self.and_n(ix_h) }
+            0xA6 => { self.and_ixy_d(IX, NextU8, memory)}
+            0xAC => { self.xor_n(ix_h) }
+            0xAD => { self.xor_n(ix_l) }
+            0xAE => { self.xor_ixy_d(IX, NextU8, memory)}
+            0xB4 => { self.or_n(ix_h) }
+            0xB5 => { self.or_n(ix_l) }
+            0xB6 => { self.or_ixy_d(IX, NextU8, memory)}
+            0xBC => { self.cp_n(ix_h) }
+            0xBD => { self.cp_n(ix_l) }
+            0xBE => { self.cp_ixy_d(IX, NextU8, memory)}
             0x46 => { self.ld_r_ix_d(IX, NextU8, B, memory) },
             0x4e => { self.ld_r_ix_d(IX, NextU8, C, memory) },
             0x56 => { self.ld_r_ix_d(IX, NextU8, D, memory) },
@@ -519,11 +555,13 @@ impl Z80 {
             0x19 => { self.add_hl_ss(IX, DE, memory) },
             0x29 => { self.add_hl_ss(IX, IX, memory) },
             0x39 => { self.add_hl_ss(IX, SP, memory) },
-            // 0xcb => { self.bit_ix_d(0, IX, NextU8, memory)}
+            0xcb => { self.bit_ix_d(7, IX, NextU8, memory)}
             0xE5 => { self.push_16(IX, memory)},
-            0xE1 => { self.pop_16(SP, IX, memory)},
+            0xE1 => { self.pop(IX, memory)},
+            0xE9 => { self.jmp(IX, memory) },
+            0xf9 => { self.ld_sp_hl(SP, IX, memory) },
             0x35 => { self.dec_ix_n(IX, NextU8, memory) }
-            _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
+            _ => {  panic!("unknown opcode 0xdd{}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
           }
         },
         0xeb => {self.ex_ss_ss(DE, HL, memory)},
@@ -536,31 +574,41 @@ impl Z80 {
               0x62 => { self.sbc_hl_ss(HL, memory) },
               0x72 => { self.sbc_hl_ss(SP, memory) },
               0x43 => { self.ed(BC, NextU16, memory) },
+              0x44 => { self.neg() }
               0x53 => { self.ed(DE, NextU16, memory) },
               0x63 => { self.ed(HL, NextU16, memory) },
               0x73 => { self.ed(SP, NextU16, memory) },
-              0x7b => { self.ld_16_nn(SP, NextU16, memory) },
+              0x4b => { self.ld_dd_nn_content(BC, NextU16, memory) },
+              0x5b => { self.ld_dd_nn_content(DE, NextU16, memory) },
+              0x6b => { self.ld_dd_nn_content(HL, NextU16, memory) },
+              0x7b => { self.ld_dd_nn_content(SP, NextU16, memory) },
               0x47 => { self.ld_r_r(I, A, memory) },
               0x4a => { self.adc_16(BC, memory) },
               0x5a => { self.adc_16(DE, memory) },
               0x6a => { self.adc_16(HL, memory) },
               0x7a => { self.adc_16(SP, memory) },
               0x5e => { self.im2() },
+              0xa1 => { self.cpi(memory) },
               0xb0 => { self.ldir(HL, DE, BC, memory)}
               _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
             }
         },
         0xfd => {
           let op = self.next_u8(memory);
+          let iy = self.r.get_u16(Register16Bit::IY);
+          let iy_l = (iy & 0x00ff) as u8;
+          let iy_h = (iy >> 8) as u8;
           self.step();
           match op {
+            0x22 => { self.ld_nn_hl(NextU16, IY, memory)},
             0x23 => {self.inc_ss(IY, memory)},
+            0x2a => { self.ld_dd_nn_content(IY, NextU16, memory)},
             0x2b => {self.dec_ss(IY, memory)},
             0x09 => { self.add_hl_ss(IY, BC, memory) },
             0x19 => { self.add_hl_ss(IY, DE, memory) },
             0x29 => { self.add_hl_ss(IY, IY, memory) },
             0x39 => { self.add_hl_ss(IY, SP, memory) },
-            0x21 => { self.ld_16_nn(IY, NextU16, memory) },
+            0x21 => { self.ld_dd_nn(IY, NextU16, memory) },
             0x34 => { self.inc_r_d(IY, NextU8 , memory)},
             0x35 => { self.dec_ix_n(IY, NextU8, memory) }
             0x36 => { self.ld_16_plus_d_n(IY, NextU16, memory) },
@@ -578,16 +626,42 @@ impl Z80 {
             0x75 => { self.ld_16_plus_d_r(IY, L, NextU8, memory) },
             0x77 => { self.ld_16_plus_d_r(IY, A, NextU8, memory) }
             0x7e => { self.ld_r_16_d(A, IY, NextU8, memory) },
+            0x84 => { self.add_a_n(iy_h) }
+            0x85 => { self.add_a_n(iy_l) }
+            0x8c => { self.adc_n(iy_h) }
+            0x8d => { self.adc_n(iy_l) }
+            0x8e => { self.adc_ixy_d(IY, NextU8, memory) }
+            0x94 => { self.sub_n(iy_h) }
+            0x95 => { self.sub_n(iy_l) }
+            0x96 => { self.sub_ixy_d(IY, NextU8, memory) }
+            0x9C => { self.sbc_n(iy_h) }
+            0x9D => { self.sbc_n(iy_l) }
+            0x9E => { self.sbc_ixy_d(IY, NextU8, memory) }
+            0xA4 => { self.and_n(iy_h) }
+            0xA5 => { self.and_n(iy_h) }
+            0xA6 => { self.and_ixy_d(IY, NextU8, memory)}
+            0xAC => { self.xor_n(iy_h) }
+            0xAD => { self.xor_n(iy_l) }
+            0xAE => { self.xor_ixy_d(IY, NextU8, memory)}
+            0xB4 => { self.or_n(iy_h) }
+            0xB5 => { self.or_n(iy_l) }
+            0xB6 => { self.or_ixy_d(IY, NextU8, memory)}
+            0xBC => { self.cp_n(iy_h) }
+            0xBD => { self.cp_n(iy_l) }
+            0xBE => { self.cp_ixy_d(IY, NextU8, memory)}
+            0x86 => { self.add_a_ix_d(IY, NextU8, memory) },
             0xE5 => { self.push_16(IY, memory)},
-            0xE1 => { self.pop_16(SP, IY, memory)},
+            0xE1 => { self.pop(IY, memory)},
+            0xE9 => { self.jmp(IY, memory) },
+            0xf9 => { self.ld_sp_hl(SP, IY, memory) },
             _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
           }
         },
         0xd9 => { self.exx() },
-        0xc1 => {self.pop_16(SP, BC, memory)},
-        0xd1 => {self.pop_16(SP, DE, memory)},
-        0xe1 => {self.pop_16(SP, HL, memory)},
-        0xf1 => {self.pop_16(SP, AF, memory)},
+        0xc1 => {self.pop(BC, memory)},
+        0xd1 => {self.pop(DE, memory)},
+        0xe1 => {self.pop(HL, memory)},
+        0xf1 => {self.pop(AF, memory)},
         0xc2 => { self.jp_cc_nn(Condition::NOTZERO, NextU16, memory) },
         0xca => { self.jp_cc_nn(Condition::ZERO, NextU16, memory) },
         0xd2 => { self.jp_cc_nn(Condition::NOTCARRY, NextU16, memory) },
@@ -637,6 +711,29 @@ impl Z80 {
     16
   }
 
+  fn scf(&mut self) {
+    let current_flags = self.r.f.bits();
+    self.r.f = Flags::from_bits_truncate(current_flags | 1);
+    self.step();
+  }
+
+  #[inline]
+  fn cpi(&mut self, mem: &dyn Memory) {
+    let hl = self.r.get_u16(Register16Bit::HL);
+    let bc = self.r.get_u16(Register16Bit::BC);
+    let value = mem.r8(hl);
+    let result = self.r.a.wrapping_sub(value);
+
+    self.r.set_u16(Register16Bit::HL, hl + 1);
+    self.r.set_u16(Register16Bit::BC, bc - 1);
+    self.r.f = Flags::ZERO.check(result == 0) |
+        Flags::NEGATIVE | 
+        Flags::SIGN.check(result & 0x80 != 0) |
+        (Flags::CARRY & self.r.f) |
+        Flags::PARITY.check(bc - 1 != 0);
+    self.step();
+  }
+
   #[inline]
   fn sbc_hl_ss<RW: ReadU16>(&mut self, ss: RW, mem: &dyn Memory) {
     let hl = self.r.get_u16(Register16Bit::HL);
@@ -657,12 +754,27 @@ impl Z80 {
 
   #[inline]
   fn sbc_r<R: ReadU8>(&mut self, r: R, mem: &dyn Memory) {
-    let a = self.r.a;
     let value = r.read_u8(self, mem);
+    self.sbc_n(value);
+  }
+
+  #[inline]
+  fn sbc_ixy_d<R16: ReadU16, D: ReadU8>(&mut self, r: R16, d: D, mem: &dyn Memory) {
+
+    let base_addr = r.read_u16(self, mem);
+    let displacement = d.read_u8(self, mem) as i8;
+    let value = mem.r8(base_addr + displacement as u16);
+    self.sbc_n(value);
+    self.step();
+  }
+
+  #[inline]
+  fn sbc_n(&mut self, n: u8) {
+    let a = self.r.a;
     let carried = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
-    let result = a.wrapping_sub(value + carried);
-    let half_carry = (self.r.a & 0xF) < (value & 0xF) + carried;
-    let carry = (self.r.a as u16) < (value as u16) + (carried as u16);
+    let result = a.wrapping_sub(n).wrapping_sub(carried);
+    let half_carry = (self.r.a & 0xF) < (n & 0xF) + carried;
+    let carry = (self.r.a as u16) < (n as u16) + (carried as u16);
     self.r.a = result;
     self.r.f = Flags::ZERO.check(result == 0) |
     Flags::NEGATIVE | Flags::SIGN.check(result & 0x80 != 0) |
@@ -736,7 +848,7 @@ impl Z80 {
     self.r.f = Flags::ZERO.check((value & mask) == 0) |
                 Flags::HALFCARRY |
                 (Flags::CARRY & self.r.f);
-    self.step();
+    self.step_n(3);
   }
 
   #[inline]
@@ -752,16 +864,31 @@ impl Z80 {
   }
 
   #[inline]
+  fn cp_ixy_d<R16: ReadU16, D: ReadU8>(&mut self, r: R16, d: D, mem: &dyn Memory) {
+
+    let base_addr = r.read_u16(self, mem);
+    let displacement = d.read_u8(self, mem) as i8;
+    let value = mem.r8(base_addr + displacement as u16);
+    self.cp_n(value);
+    self.step();
+  }
+
+  #[inline]
   fn cp<R: ReadU8>(&mut self, r: R, mem: &dyn Memory) {
     let value = r.read_u8(self, mem);
-    let result = self.r.a.wrapping_sub(value);
+    self.cp_n(value);
+  }
+
+  #[inline]
+  fn cp_n(&mut self, n: u8) {
+    let result = self.r.a.wrapping_sub(n);
 
     self.r.f = Flags::ZERO.check(result == 0) |
                 Flags::NEGATIVE |
                 Flags::SIGN.check(result & 0x80 != 0) |
-                Flags::HALFCARRY.check((self.r.a & 0xF) < (value & 0xF)) |
+                Flags::HALFCARRY.check((self.r.a & 0xF) < (n & 0xF)) |
                 Flags::PARITY.check(result >= 0x80 || result <= 0x81) | 
-                Flags::CARRY.check(self.r.a < value);
+                Flags::CARRY.check(self.r.a < n);
     self.step();
   }
 
@@ -834,18 +961,26 @@ impl Z80 {
   }
 
   #[inline]
-  fn pop_16<W: WriteU16, RW: ReadU16 + WriteU16>(&mut self, sp: RW, dest: W, mem: &mut dyn Memory) {
-    let sp_contents = sp.read_u16(self, mem);
-    let data = mem.r16(sp_contents);
+  fn pop<W: WriteU16>(&mut self, dest: W, mem: &mut dyn Memory) {
+    let sp = self.r.sp;
+    let data = mem.r16(sp);
     dest.write_u16(self, data, mem);
-    sp.write_u16(self, sp_contents + 2, mem);
+    self.r.sp = sp.wrapping_add(2);
     self.step();
   }
 
   #[inline]
-  fn ld_16_nn<W: WriteU16, R: ReadU16>(&mut self, w: W, r: R, mem: &mut dyn Memory) {
+  fn ld_dd_nn<W: WriteU16, R: ReadU16>(&mut self, w: W, r: R, mem: &mut dyn Memory) {
     let data = r.read_u16(self, mem);
     w.write_u16(self, data, mem);
+    self.step_n(3);
+  }
+
+  #[inline]
+  fn ld_dd_nn_content<W: WriteU16, R: ReadU16>(&mut self, w: W, r: R, mem: &mut dyn Memory) {
+    let data = r.read_u16(self, mem);
+    let addr = mem.r16(data);
+    w.write_u16(self, addr, mem);
     self.step_n(3);
   }
 
@@ -882,8 +1017,8 @@ impl Z80 {
   fn ld_r_16_d<W8: WriteU8, R16: ReadU16, R: ReadU8>(&mut self, w: W8, baseaddr: R16, d: R, mem: &mut dyn Memory) {
     let displacement = d.read_u8(self, mem) as i8;
     let value = baseaddr.read_u16(self, mem);
-    let result = mem.r8(value.wrapping_add(displacement as u16));
-    w.write_u8(self, result, mem);
+    let address = mem.r8(value.wrapping_add(displacement as u16));
+    w.write_u8(self, address, mem);
     self.step_n(2);
   }
 
@@ -891,18 +1026,24 @@ impl Z80 {
   fn add_a_ix_d<R: ReadU8, R16: ReadU16>(&mut self, baseaddr: R16, d: R, mem: &dyn Memory) {
     let displacement = d.read_u8(self, mem) as i8;
     let value = baseaddr.read_u16(self, mem);
-    let result = mem.r8(value + displacement as u16);
-    self.r.a =  self.r.a.wrapping_add(result);
+    let n = mem.r8(value.wrapping_add(displacement as u16));
+    let (result, overflow) =  self.r.a.overflowing_add(n);
     self.r.f = Flags::ZERO.check(result == 0) | 
-    Flags::HALFCARRY | Flags::SIGN.check(result & 0x80 != 0);
-    self.step_n(3);
+          Flags::HALFCARRY |
+          Flags::PARITY.check(result >= 0x80 || result <= 0x81) |
+          Flags::CARRY.check(overflow) |
+          Flags::SIGN.check(result & 0x80 != 0);
+    self.r.a = result;
+    self.step_n(2);
   }
 
   #[inline]
   fn rrca<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) {
     let value = rw.read_u8(self, mem);
     let r = value.rotate_right(1);
-    self.r.f = Flags::CARRY.check(value & 0x01 == 1) | Flags::PARITY.check(r.count_ones() & 1 == 0);
+    self.r.f = Flags::CARRY.check(value & 0x01 == 1) |
+               Flags::SIGN.check(r & 0x80 != 0) |
+              Flags::PARITY.check(r.count_ones() & 1 == 0);
     rw.write_u8(self, r, mem);
     self.step();
   }
@@ -911,7 +1052,10 @@ impl Z80 {
   fn rlca<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) {
     let value = rw.read_u8(self, mem);
     let r = value.rotate_left(1);
-    self.r.f = Flags::CARRY.check(value & 0x80 != 0) | (Flags::PARITY & self.r.f);
+    self.r.f = Flags::CARRY.check(value & 0x80 != 0) |
+      Flags::ZERO.check(r == 0) |
+      Flags::SIGN.check(r & 0x80 != 0) |
+      Flags::PARITY.check(r.count_ones() & 1 == 0);
     rw.write_u8(self, r, mem);
     self.step();
   }
@@ -929,9 +1073,10 @@ impl Z80 {
 
   #[inline]
   fn rla<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) {
-    let c = rw.read_u8(self,  mem); & 0b1000_0000;
+    let a = self.r.a;
+    let c = a & 0b1000_0000;
     let temp = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
-    let r = rw.read_u8(self,  mem).rotate_left(1) | temp;
+    let r = a << 1 | temp;
     self.r.f = Flags::CARRY.check(c != 0) |
         (Flags::ZERO & self.r.f) |
         (Flags::SIGN & self.r.f) |
@@ -942,13 +1087,13 @@ impl Z80 {
 
   #[inline]
   fn rra<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) {
-    let c = rw.read_u8(self,  mem) & 0b0000_0001;
+    let a = self.r.a;
+    let c = a & 0b0000_0001;
     let temp = if self.r.f.contains(Flags::CARRY) { 0x80 } else { 0 };
-    let r = rw.read_u8(self,  mem).rotate_right(1) | temp;
+    let r = (a >> 1) | temp;
     self.r.f = Flags::CARRY.check(c != 0) |
         (Flags::ZERO & self.r.f) |
         (Flags::SIGN & self.r.f) |
-        Flags::PARITY.check(r.count_ones() & 1 == 0) |
         (Flags::PARITY & self.r.f);
     rw.write_u8(self, r, mem);
     self.step();
@@ -956,9 +1101,11 @@ impl Z80 {
 
   #[inline]
   pub fn ret(&mut self, mem: &dyn Memory) {
-    let data = mem.r16(self.r.sp);
-    self.r.sp = self.r.sp.wrapping_add(2);
+    let sp = self.r.sp;
+    let data = mem.r16(sp);
     self.r.pc = data;
+    // println!("RET with {}", format!("{:#x}", data));
+    self.r.sp = sp.wrapping_add(2);
   }
 
   #[inline]
@@ -971,16 +1118,59 @@ impl Z80 {
   }
 
   #[inline]
+  fn sub_ixy_d<R16: ReadU16, D: ReadU8>(&mut self, r: R16, d: D, mem: &dyn Memory) {
+
+    let base_addr = r.read_u16(self, mem);
+    let displacement = d.read_u8(self, mem) as i8;
+    let value = mem.r8(base_addr + displacement as u16);
+    self.sub_n(value);
+    self.step();
+  }
+
+  #[inline]
   fn sub_r<R: ReadU8>(&mut self, rw: R, mem: &dyn Memory) {
 
     let value = rw.read_u8(self, mem);
-    let result = self.r.a.wrapping_sub(value) as i16;
+    self.sub_n(value);
+  }
+
+  #[inline]
+  fn sub_n(&mut self, n: u8) {
+
+    let result = self.r.a.wrapping_sub(n) as i16;
     
     let mut borrow = false;
     for mask in [0b000_0001, 0b0000_0010, 0b0000_0100, 0b0000_1000,
     0b0001_0000, 0b0010_0000, 0b0100_0000, 0b1000_0000].iter() {
       
-      if (value & mask) > (self.r.a & mask) {
+      if (n & mask) > (self.r.a & mask) {
+        borrow = true;
+        break;
+      }
+    }
+    
+    self.r.f = Flags::ZERO.check(result == 0) | 
+    Flags::HALFCARRY.check(borrow) | Flags::NEGATIVE | 
+    Flags::SIGN.check(result & 0x80 != 0) |
+    Flags::PARITY.check(result >= 0x80 || result <= 0x81) | 
+    Flags::CARRY.check(borrow);
+    
+    self.r.a = result as u8;
+    self.step();
+  }
+
+
+  #[inline]
+  fn neg(&mut self) {
+
+    let n = self.r.a;
+    let result = 0 - n;
+    
+    let mut borrow = false;
+    for mask in [0b000_0001, 0b0000_0010, 0b0000_0100, 0b0000_1000,
+    0b0001_0000, 0b0010_0000, 0b0100_0000, 0b1000_0000].iter() {
+      
+      if (n & mask) > (self.r.a & mask) {
         borrow = true;
         break;
       }
@@ -997,9 +1187,25 @@ impl Z80 {
   }
 
   #[inline]
+  fn and_ixy_d<R16: ReadU16, D: ReadU8>(&mut self, r: R16, d: D, mem: &dyn Memory) {
+
+    let base_addr = r.read_u16(self, mem);
+    let displacement = d.read_u8(self, mem) as i8;
+    let value = mem.r8(base_addr + displacement as u16);
+    self.and_n(value);
+    self.step();
+  }
+
+
+  #[inline]
   fn and_r<R: ReadU8>(&mut self, rw: R, mem: &dyn Memory) {
     let value = rw.read_u8(self,  mem);
-    let result = self.r.a & value;
+    self.and_n(value);
+  }
+
+  #[inline]
+  fn and_n(&mut self, n: u8) {
+    let result = self.r.a & n;
     self.r.a = result;
     self.r.f = Flags::ZERO.check(result == 0) |
       Flags::PARITY.check(result.count_ones() & 1 != 0) |
@@ -1049,10 +1255,13 @@ impl Z80 {
   }
 
   #[inline]
-  fn ld_nn_hl<R16: ReadU16, R: ReadU8>(&mut self, a: R16, r: R, mem: &mut dyn Memory) {
-    let address = a.read_u16(self, mem);
-    let value = r.read_u8(self,  mem);
-    mem.w8(address, value);
+  fn ld_nn_hl<R16: ReadU16, R: ReadU16>(&mut self, a: R16, r: R, mem: &mut dyn Memory) {
+    let hl = r.read_u16(self, mem);
+    let h = (hl & 0xFF00) >> 8;
+    let l = hl & 0x00FF;
+    let address = a.read_u16(self,  mem);
+    mem.w8(address, l as u8);
+    mem.w8(address + 1, h as u8);
     self.step_n(3);
   }
 
@@ -1067,11 +1276,27 @@ impl Z80 {
   fn adc_r<R: ReadU8>(&mut self, r: R, mem: &dyn Memory) {
 
     let value = r.read_u8(self, mem);
+    self.adc_n(value);
+  }
+
+  #[inline]
+  fn adc_ixy_d<R16: ReadU16, D: ReadU8>(&mut self, r: R16, d: D, mem: &dyn Memory) {
+
+    let base_addr = r.read_u16(self, mem);
+    let displacement = d.read_u8(self, mem) as i8;
+    let value = mem.r8(base_addr + displacement as u16);
+    self.adc_n(value);
+    self.step();
+  }
+
+  #[inline]
+  fn adc_n(&mut self, n: u8) {
+
     let carried = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
-    let result = self.r.a.wrapping_add(value).wrapping_add(carried);
+    let result = self.r.a.wrapping_add(n).wrapping_add(carried);
   
-    let carry = self.r.a as u16 + value as u16 + carried as u16 > 0xFF;
-    let half_carry = (self.r.a & 0xF) + (value & 0xF) + carried > 0xF;
+    let carry = self.r.a as u16 + n as u16 + carried as u16 > 0xFF;
+    let half_carry = (self.r.a & 0xF) + (n & 0xF) + carried > 0xF;
     self.r.f =  Flags::ZERO.check(result == 0) |
                 Flags::PARITY.check(result > 0x80) |
                 Flags::HALFCARRY.check(half_carry) | 
@@ -1129,13 +1354,18 @@ impl Z80 {
   }
 
   #[inline]
-  fn add_a_r<R: ReadU8>( &mut self, r: R, mem: &dyn Memory) {
-      let a = self.r.a as u8;
+  fn add_a_r<R: ReadU8>(&mut self, r: R, mem: &dyn Memory) {
       let value = r.read_u8(self, mem);
-      let (result, carry) = a.overflowing_add(value);
+      self.add_a_n(value);
+  }
+
+  #[inline]
+  fn add_a_n(&mut self, n: u8) {
+      let a = self.r.a as u8;
+      let (result, carry) = a.overflowing_add(n);
       self.r.a = result;
 
-      let half_carry = (self.r.a & 0xF) + (value & 0xF) > 0xF;
+      let half_carry = (self.r.a & 0xF) + (n & 0xF) > 0xF;
       self.r.f = Flags::ZERO.check(result == 0) |
                  Flags::SIGN.check(result & 0x80 != 0) |
                  Flags::HALFCARRY.check(half_carry) |
@@ -1145,8 +1375,9 @@ impl Z80 {
       self.step();
   }
 
+
   #[inline]
-  fn push_16<R: ReadU16>( &mut self, r: R, mem: &mut dyn Memory) {
+  fn push_16<R: ReadU16>(&mut self, r: R, mem: &mut dyn Memory) {
     let value = r.read_u16(self, mem);
     self.push(value, mem);
     self.step();
@@ -1197,9 +1428,7 @@ impl Z80 {
   #[inline]
   pub fn jp_cc_nn<R: ReadU16>(&mut self, condition:Condition, addr: R, mem: &dyn Memory) {
     if condition.check(self.r.f) {
-      // self.jmp(addr, mem);
-      let a = addr.read_u16(self, mem); 
-      self.r.pc = a;
+      self.jmp(addr, mem);
     } else {
       self.step_n(3);
     }
@@ -1221,14 +1450,29 @@ impl Z80 {
     let value = r.read_u16(self, mem);
       let nn = mem.r16(value);
       self.r.h = (nn >> 8) as u8;
-      self.r.l = nn as u8;
+      self.r.l = (nn & 0x00FF) as u8;
       self.step_n(3);
   }
 
   #[inline]
+  fn xor_ixy_d<R16: ReadU16, D: ReadU8>(&mut self, r: R16, d: D, mem: &dyn Memory) {
+
+    let base_addr = r.read_u16(self, mem);
+    let displacement = d.read_u8(self, mem) as i8;
+    let value = mem.r8(base_addr + displacement as u16);
+    self.xor_n(value);
+    self.step();
+  }  
+
+  #[inline]
   pub fn xor_r<R: ReadU8>(&mut self, r: R, mem: &dyn Memory) {
     let value = r.read_u8(self, mem);
-    let result = self.r.a ^ value;
+    self.xor_n(value);
+  }
+
+  #[inline]
+  pub fn xor_n(&mut self, n: u8) {
+    let result = self.r.a ^ n;
     self.r.a  = result;
     self.r.f = Flags::ZERO.check(result == 0) |
      Flags::PARITY.check(result.count_ones() & 1 != 0) |
@@ -1237,9 +1481,24 @@ impl Z80 {
   }
 
   #[inline]
+  fn or_ixy_d<R16: ReadU16, D: ReadU8>(&mut self, r: R16, d: D, mem: &dyn Memory) {
+
+    let base_addr = r.read_u16(self, mem);
+    let displacement = d.read_u8(self, mem) as i8;
+    let value = mem.r8(base_addr + displacement as u16);
+    self.or_n(value);
+    self.step();
+  }
+
+  #[inline]
   pub fn or_r<R: ReadU8>(&mut self, r: R, mem: &dyn Memory) {
     let value = r.read_u8(self, mem);
-    let result = self.r.a | value;
+    self.or_n(value);
+  }
+
+  #[inline]
+  pub fn or_n(&mut self, n: u8) {
+    let result = self.r.a | n;
     self.r.a  = result;
     self.r.f = Flags::ZERO.check(result == 0) |
       Flags::PARITY.check(result.count_ones() & 1 != 0) |

@@ -45,7 +45,7 @@ fn main () -> Result<(), Error> {
     let mut input = WinitInputHelper::new();
     // Set up Dear ImGui
     let mut gui = Gui::new(&window, &pixels);
-    // gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
+    // gui.set_memory_editor_mem(&world.memory.video_ram);
 
     event_loop.run(move |event, _, control_flow| {
         // The one and only event that winit_input_helper doesn't have for us...
@@ -218,10 +218,9 @@ impl Machine {
     fn draw(&mut self, frame: &mut [u8]) {
         // Clear the screen
             for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-
-                // let t = memory.pixel_buffer[i];
-                // let raw_bytes = t.to_be_bytes();
-                // pixel.copy_from_slice(&raw_bytes);
+                let t = self.memory.pixel_buffer[i];
+                let raw_bytes = t.to_be_bytes();
+                pixel.copy_from_slice(&raw_bytes);
             }
         }
        

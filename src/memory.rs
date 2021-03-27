@@ -100,7 +100,7 @@ impl Memory for BoardMemory {
           println!("Write violation")
         },
         0x4000..=0x43de => {
-          let offset: usize = (address - 0x4000).into();
+          let offset = address - 0x4000;
           self.decoder.decode_tile(offset as usize, &self.tile_rom , data as usize, &mut self.pixel_buffer);
         },
         0x4400..=0x47ff => {
