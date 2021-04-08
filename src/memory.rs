@@ -1,6 +1,6 @@
 
 use crate::WIDTH;
-use crate::gfx_decoder::Decoder;
+// use crate::gfx_decoder::Decoder;
 use crate::gfx_decoder::TileDecoder;
 
 pub trait Memory {
@@ -16,9 +16,10 @@ pub trait Memory {
 
 pub struct BoardMemory {
   pub work_ram: Vec<u8>,
-  pub pixel_buffer: Vec<u32>,
+  // pub pixel_buffer: Vec<u32>,
   pub tile_rom: Vec<u8>, 
-  decoder: TileDecoder,
+  pub sprite_rom: Vec<u8>, 
+  pub decoder: TileDecoder,
 }
 
 pub struct PlainMemory {
@@ -80,8 +81,8 @@ impl Memory for BoardMemory {
       BoardMemory{
         work_ram: Vec::new(),
         tile_rom: Vec::new(),
+        sprite_rom: Vec::new(),
         decoder: TileDecoder::new(WIDTH),
-        pixel_buffer: vec![0; 64512],
       }
     }
 
@@ -89,32 +90,21 @@ impl Memory for BoardMemory {
       BoardMemory { 
         work_ram: vec![0; 65536],
         tile_rom: vec![0],
-        pixel_buffer: vec![0],
+        sprite_rom: vec![0],
         decoder: TileDecoder::new(WIDTH)
       }
     }
 
     fn w8(&mut self, address:u16, data:u8) {
+      let address= address & 0x7fff;
       match address {
         0x0000..=0x3fff => {
-          println!("Write violation")
-        },
-        0x4000..=0x43de => {
-          let offset = address - 0x4000;
-          self.decoder.decode_tile(offset as usize, &self.tile_rom , data as usize, &mut self.pixel_buffer);
-        },
-        0x4400..=0x47ff => {
-          let offset = address - 0x4000;
-          // println!("Palette RAM: accessed {} with {}", format!("{:#x}", address), data);
-        },
+          println!("Attempted to write to ROM!");
+          // panic!("Write Violation");
+        },     
+        // },
         // 0x5040..=0x505f => {    
         //     println!("Sound tests at {} with {}", format!("{:#x}", address), data)
-        // },
-        // 0x5060..=0x506f => {    
-        //   // maOtch self.work_ram.get(0x4ff0 ..0x4fff) {
-        //   //   Some(sprite_positions) => self.decoder.decode_sprite(address as usize, sprite_positions, &self.sprite_rom, data as usize, &mut self.pixel_buffer),
-        //   //   None => println!("Error decoding Sprite positions?")
-        //   // }
         // },
         // 0x5070..=0x50bf => {    
         //   println!("??? {} with {}", format!("{:#x}", address), data)
@@ -122,7 +112,7 @@ impl Memory for BoardMemory {
         // 0x50c0..=0x50ff => {    
         //   // println!("Watchdog reset")
         // },
-        _ => self.work_ram[address as usize] = data,
+        _ => self.work_ram[address  as usize] = data,
       }
     }
 
@@ -148,6 +138,7 @@ impl Memory for BoardMemory {
     }
 
     fn r8(&self, addr: u16) -> u8 {
+      let address= addr & 0x7fff;
       match addr {
         0x5000 => { // Read IN0: Joystick and coin slot
           0b1111_1111
@@ -155,13 +146,16 @@ impl Memory for BoardMemory {
         0x5040 => {
           0b1111_1111 // IN1
         },
-        0x5080 => {
-          0b1000_0001 //Dip-Switch byte
+        0x5080..=0x50bf => {
+          0xc9 //Dip-Switch byte
         }
         0x4400..=0x47ff => {
           0x7f
         },
-        _ => self.work_ram[addr as usize]
+        // 0x5100..=0xffff => {
+        //   0
+        // }
+        _ => self.work_ram[address as usize]
       }
   }
 }

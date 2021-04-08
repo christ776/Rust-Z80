@@ -177,7 +177,6 @@ impl Z80 {
     Z80{  
           // sp: 0x4FEF,
           r: Registers::new(),
-          // mem: memory,
           _vblank_interrupt: false,
           enable_hw_interrupt: false,
           enable_int: false,
@@ -262,6 +261,7 @@ impl Z80 {
         0x38 => { self.jr_conditional(Condition::CARRY, memory) },
         0x28 => { self.jr_conditional(Condition::ZERO, memory) },
         0x37 => { self.scf() }
+        0x27 => { self.daa() }
         0x5 => { self.dec_r(B, memory) },
         0x0d => { self.dec_r(C, memory) },
         0x15 => { self.dec_r(D, memory) },
@@ -478,6 +478,20 @@ impl Z80 {
             0x6e => { self.bit(5, Address::HL, memory) },
             0x76 => { self.bit(6, Address::HL, memory) },
             0x7e => { self.bit(7, Address::HL, memory) },
+            0xC0..=0xff => {
+              let bit = (op & 0x38) >> 3;
+              let r = op & 0x07;
+              match r {
+                0x0 =>  self.set_r(bit, B, memory),
+                0x1 =>  self.set_r(bit, C, memory),
+                0x2 =>  self.set_r(bit, D, memory),
+                0x4 =>  self.set_r(bit, H, memory),
+                0x3 =>  self.set_r(bit, E, memory),
+                0x5 =>  self.set_r(bit, L, memory),
+                0x7 =>  self.set_r(bit, A, memory),
+                _ => {}
+              }
+            }
             0x38 => { self.srl_m(B, memory) },
             0x39 => { self.srl_m(C, memory) },
             0x3a => { self.srl_m(D, memory) },
@@ -485,6 +499,19 @@ impl Z80 {
             0x3c => { self.srl_m(H, memory) },
             0x3d => { self.srl_m(L, memory) },
             0x3f => { self.srl_m(A, memory) }
+            0| 1 | 2 | 3 | 4 | 5 | 7 => {
+              let r = op & 0x07;
+              match r {
+                0x0 =>  self.rlca(B, memory),
+                0x1 =>  self.rlca(C, memory),
+                0x2 =>  self.rlca(D, memory),
+                0x4 =>  self.rlca(H, memory),
+                0x3 =>  self.rlca(E, memory),
+                0x5 =>  self.rlca(L, memory),
+                0x7 =>  self.rlca(A, memory),
+                _ => {}
+              }
+            }
             0x0E => { self.rrca(Address::HL, memory)}
             0x06 => { self.rlca(Address::HL, memory)}
             // 0x10 => { }
@@ -587,6 +614,7 @@ impl Z80 {
               0x5a => { self.adc_16(DE, memory) },
               0x6a => { self.adc_16(HL, memory) },
               0x7a => { self.adc_16(SP, memory) },
+              0x56 => { self.im1() },
               0x5e => { self.im2() },
               0xa1 => { self.cpi(memory) },
               0xb0 => { self.ldir(HL, DE, BC, memory)}
@@ -711,6 +739,33 @@ impl Z80 {
     16
   }
 
+  #[inline]
+  fn daa(&mut self) {
+    let mut a_l = self.r.a & 0x0f;
+    let mut a_h = self.r.a & 0xf0;
+    let mut half_carry = false;
+    if a_l > 9 || self.r.f.contains(Flags::HALFCARRY) {
+      a_l= a_l + 0x06;
+      half_carry = true;
+    }
+    let mut carry = false;
+    if a_h > 9 || self.r.f.contains(Flags::CARRY) {
+      a_h = a_h + 0x60;
+      carry = true;
+    }
+
+    self.r.a = a_h | a_l;
+    self.r.f = 
+        Flags::CARRY.check(carry) |
+        Flags::HALFCARRY.check(half_carry)  |
+        Flags::SIGN.check(self.r.a & 0x80 != 0) |
+        (Flags::NEGATIVE & self.r.f) |
+        Flags::PARITY.check(self.r.a.count_ones() & 1 == 0) |
+        Flags::ZERO.check(self.r.a == 0);
+    self.step();
+  }
+
+  #[inline]
   fn scf(&mut self) {
     let current_flags = self.r.f.bits();
     self.r.f = Flags::from_bits_truncate(current_flags | 1);
@@ -819,6 +874,10 @@ impl Z80 {
     self.step();
   }
 
+  fn im1(&mut self) {
+    self.step();
+  }
+
   fn ei(&mut self) {
     self.enable_int = true;
     self.step();
@@ -836,6 +895,14 @@ impl Z80 {
     self.r.f = Flags::ZERO.check((value & mask) == 0) |
                 Flags::HALFCARRY |
                 (Flags::CARRY & self.r.f);
+    self.step();
+  }
+
+  #[inline]
+  fn set_r<RW: ReadU8 + WriteU8>(&mut self, bit: u8, r: RW, mem: &mut dyn Memory) {
+    let value = r.read_u8(self, mem);
+    let mask = 1 << bit;
+    r.write_u8(self, value | mask, mem);
     self.step();
   }
 
@@ -1327,14 +1394,15 @@ impl Z80 {
 
   #[inline]
   fn dec_r<RW: ReadU8 + WriteU8>(&mut self, rw: RW, mem: &mut dyn Memory) {
-      let value = rw.read_u8(self, mem).wrapping_sub(1);
+      let value = rw.read_u8(self, mem);
+      let result = value.wrapping_sub(1);
       let a = rw.read_u8(self, mem);
 
-      rw.write_u8(self, value, mem);
-      self.r.f = Flags::NEGATIVE | Flags::SIGN.check(value & 0x80 != 0) 
-        | Flags::ZERO.check(value == 0) |
-        Flags::HALFCARRY.check((a & 0xF) < (value & 0xF)) |
-        Flags::PARITY.check(value > 0x80) | 
+      rw.write_u8(self, result, mem);
+      self.r.f = Flags::NEGATIVE | Flags::SIGN.check(result & 0x80 != 0) 
+        | Flags::ZERO.check(result == 0) |
+        Flags::HALFCARRY.check((a & 0xF) < (result & 0xF)) |
+        Flags::PARITY.check(value == 0x80) | 
         (Flags::CARRY & self.r.f);
 
       self.step();
@@ -1535,6 +1603,7 @@ impl Z80 {
       self.r.f = Flags::ZERO.check(result == 0) |
       Flags::HALFCARRY.check(value & 0xF == 0xF) |
       Flags::SIGN.check(result & 0x80 != 0) |
+      Flags::PARITY.check(value == 0x7f) |
       (Flags::CARRY & self.r.f);
       self.step();
   }

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{convert::TryFrom, fmt};
 
 bitflags!{
 /// flags (f): sz-h-pnc
@@ -37,7 +37,30 @@ impl Flags {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Register8Bit {
-    A, B, C, D, E, H, I, L,
+    A = 7,
+    B = 0,
+    C = 1,
+    D = 2,
+    E = 3,
+    H = 4,
+    I = 9,
+    L = 5,
+}
+
+impl TryFrom<u8> for Register8Bit {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            x if x == Register8Bit::A as u8 => Ok(Register8Bit::A),
+            x if x == Register8Bit::B as u8 => Ok(Register8Bit::B),
+            x if x == Register8Bit::C as u8 => Ok(Register8Bit::C),
+            x if x == Register8Bit::D as u8 => Ok(Register8Bit::D),
+            x if x == Register8Bit::E as u8 => Ok(Register8Bit::E),
+            x if x == Register8Bit::H as u8 => Ok(Register8Bit::H),
+            x if x == Register8Bit::L as u8 => Ok(Register8Bit::L),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

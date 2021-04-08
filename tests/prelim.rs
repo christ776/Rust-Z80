@@ -1,19 +1,18 @@
-mod zex {
+mod prelim {
 
     use Z80::z80::Z80;
     use ::Z80::memory::PlainMemory;
     use ::Z80::memory::Memory;
     use ::Z80::registers::{ Register16Bit };
 
-    static ZEXDOC: &'static [u8] = include_bytes!("resources/zexdoc.com");
-    // static ZEXALL: &'static [u8] = include_bytes!("resources/zexall.com");
+    static PRELIM: &'static [u8] = include_bytes!("resources/prelim.com");
 
     #[test]
-    fn test_zex() {
+    fn test_prelim() {
         let mut tests_passed = 0;
         let mut cpu = Z80::new();
         let mut mem = PlainMemory::new_64k();
-        mem.write(0x0100, ZEXDOC);
+        mem.write(0x0100, PRELIM);
         cpu.r.sp = 0xF000;
         cpu.r.pc = 0x0100;
         /*
@@ -26,17 +25,6 @@ mod zex {
         let code = [0xD3, 0x00, 0xC9];
         for i in 0..code.len() {
              mem.w8(5 + i as u16, code[i]);
-        }
-
-          // Patch to run a single test
-        let run_single_test = true;
-        let single_test = 16;
-        if run_single_test {
-            let mut test_start = mem.r16(0x0120);
-            test_start += single_test*2;
-            mem.w16(0x0120, test_start);
-            mem.w16(test_start + 2 , 0);
-        
         }
     
         loop {

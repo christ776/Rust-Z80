@@ -963,10 +963,11 @@ use Z80::z80::Z80;
         ];
         mem.write(0x0000, &prog);
 
-        for _ in 0..8 {
+        for _ in 0..7 {
             cpu.exec(&mut mem);
         }
 
+        cpu.exec(&mut  mem);
         assert_eq!(0x01, cpu.r.a); assert!(cpu.r.f.is_empty());
         cpu.exec(&mut  mem);
         assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO) && cpu.r.f.contains(Flags::NEGATIVE));

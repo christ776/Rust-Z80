@@ -18,18 +18,16 @@ mod pixel;
 mod gui;
 mod registers;
 
-use crate::memory::Memory;
-use crate::z80::Z80;
-use crate::memory::BoardMemory;
-use crate::gui::Gui;
 use std::time::Duration;
 use std::time::Instant;
 
+use gui::Gui;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit_input_helper::WinitInputHelper;
+use ::Z80::{memory::BoardMemory, memory::Memory, z80::Z80};
 
 
 fn main () -> Result<(), Error> {
@@ -45,7 +43,11 @@ fn main () -> Result<(), Error> {
     let mut input = WinitInputHelper::new();
     // Set up Dear ImGui
     let mut gui = Gui::new(&window, &pixels);
-    // gui.set_memory_editor_mem(&world.memory.video_ram);
+    let video_ram = world.memory.work_ram.get(0x4000..0x4400);
+    match video_ram {
+        Some(video_ram) => gui.set_memory_editor_mem(&video_ram),
+        None => print!("Error?")
+    }
 
     event_loop.run(move |event, _, control_flow| {
         // The one and only event that winit_input_helper doesn't have for us...
@@ -56,8 +58,12 @@ fn main () -> Result<(), Error> {
         if let Event::RedrawEventsCleared = event {
             let now = Instant::now();
             gui.update_delta_time(now - last_frame);
-            gui.update_cpu_state(world.cpu.r.pc);
-            // gui.set_memory_editor_mem(&world.cpu.mem.video_ram);
+            gui.update_cpu_state(&world.cpu);
+            match world.memory.work_ram.get(0x4000..0x4400) {
+                Some(video_ram) => gui.set_memory_editor_mem(&video_ram),
+                None => print!("Error?")
+            }
+
             last_frame = now;
         }
 
@@ -140,17 +146,17 @@ struct Machine {
     cpu: Z80,
     memory: BoardMemory,
     dt: Duration,
+    pixel_buffer: Vec<u32>,
 }
 
 impl Machine {    
      fn new() -> Self {
-        let memory = BoardMemory::new();
-        let dt = Duration::default();
-        let cpu = z80::Z80::new();
+
         Self {
-            cpu,
-            memory,
-            dt
+            memory: BoardMemory::new(),
+            dt: Duration::default(),
+            cpu: Z80::new(),
+            pixel_buffer: vec![0; 65536],
         }
     }
 
@@ -163,11 +169,11 @@ impl Machine {
         //Tile ROM
         Machine::load_rom_mut(&String::from("./pacman/pacman.5e"), &mut self.memory.tile_rom);
         //Sprite ROM
-        Machine::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut self.memory.work_ram);
+        Machine::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut self.memory.sprite_rom);
 
         // Working RAM ... it's a bit of a hack for now
         // &mem.work_ram.append(&mut video_ram);
-        let mut working_ram:Vec<u8> = vec![0; 4196];
+        let mut working_ram:Vec<u8> = vec![0; 5220];
         self.memory.work_ram.append(&mut working_ram);
         // ; skip the checksum test, change 30fb to: ; HACK 0
         // ; 30fb  c37431    jp      #3174		; run the game!
@@ -194,6 +200,11 @@ impl Machine {
             self.cpu.exec(&mut self.memory);
         }
 
+        let sprite_rom = &self.memory.sprite_rom;
+        let work_ram = &self.memory.work_ram;
+        let tile_rom = &self.memory.tile_rom;
+        self.memory.decoder.decode_tile(work_ram, &tile_rom, &mut self.pixel_buffer);
+        self.memory.decoder.decode_sprite(&work_ram, &&sprite_rom, &mut self.pixel_buffer);
         self.cpu.vblank();
     }
     
@@ -218,7 +229,7 @@ impl Machine {
     fn draw(&mut self, frame: &mut [u8]) {
         // Clear the screen
             for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-                let t = self.memory.pixel_buffer[i];
+                let t = self.pixel_buffer[i];
                 let raw_bytes = t.to_be_bytes();
                 pixel.copy_from_slice(&raw_bytes);
             }

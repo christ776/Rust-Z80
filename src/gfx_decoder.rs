@@ -1,24 +1,14 @@
-
 use crate::pixel::Pixel;
 
 pub struct TileDecoder {
   width: usize
 }
 
+impl TileDecoder {
 
-pub trait Decoder {
-  fn decode_tile(&self, offset: usize, tile_rom: &[u8], tile: usize, pixel_buffer: &mut Vec<u32>);
-  fn to_pixel_buffer(&self, offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>);
-  fn decode_sprite(&self, address: usize, sprite_positions: &[u8], sprite_rom: &Vec<u8>,
-    position_y: usize, pixel_buffer: &mut Vec<u32>); 
-  fn new(width: usize) -> Self where Self: Sized;
-}
-
-impl Decoder for TileDecoder {
-
-  fn new(width: usize) -> Self {
+  pub fn new(width: usize) -> Self {
     Self {
-      width: width
+      width
     }
   }
 
@@ -32,59 +22,114 @@ impl Decoder for TileDecoder {
   /// |--------
   /// | 4 | 4 |
   /// |--------
-  fn decode_tile(&self, offset: usize, tile_rom: &[u8], tile: usize, pixel_buffer: &mut Vec<u32>) {
-    let tile_offset = tile * 16;
-    match &tile_rom.get(tile_offset ..tile_offset + 16) {
-      Some(tile) => self.to_pixel_buffer(offset, tile, pixel_buffer),
-      None => print!("Error?")
+  /// Sprites on the other hand are stored as 16x16 pixels
+  /// |--------
+  /// | 8 | 8 |
+  /// |--------
+  /// | 8 | 8 |
+  /// |--------
+  /// Likewise Sprites have 16x16 pixels and each pixel has 2-bit color depth, then each
+  /// spritetakes 16x16 pixels --> 256 pixels at 2bits each = 512bit --> 64bytes per tile
+
+  pub fn decode_tile(&self, video_ram: &[u8], tile_rom: &[u8], pixel_buffer: &mut Vec<u32>) {
+
+    // match tile_rom.get(tile_data * tile..tile_data * tile + 16) {
+    //   Some(tile) => self.to_pixel_buffer(tile, row, column, pixel_buffer),
+    //   None => print!("Error?")
+    // }
+
+    // for tile in video_ram.iter() {
+    //   if *tile >= 0x02 && *tile <= 0x1d || *tile >= 0x22 && *tile <= 0x03d { 
+  
+    //     if tile_offset == 0x1d {
+    //       tile_offset = 0x22;
+    //     } else {
+    //       tile_offset += 1; 
+    //     }
+    // }
+
+    // Lower two rows
+    let mut tile_offset = 0x02;
+    for row in 34..=35 {
+      for column in 2..30 {
+          let tile_data = video_ram[tile_offset + 0x4000] as usize; 
+          match tile_rom.get(tile_data * 16..tile_data * 16 + 16) {
+            Some(tile) => self.to_pixel_buffer(tile, row, column, pixel_buffer),
+            None => print!("Error?")
+          }
+          if tile_offset == 0x1d {
+            tile_offset = 0x22;
+          } else {
+            tile_offset += 1; 
+          }
+      }
+    }
+
+    // Top two rows
+    tile_offset = 0x03c2;
+    for row in 0..3 {
+      for column in 2..30 {
+          let tile_data = video_ram[tile_offset + 0x4000] as usize; 
+          match tile_rom.get(tile_data * 16..tile_data * 16 + 16) {
+            Some(tile) => self.to_pixel_buffer(tile, row, column, pixel_buffer),
+            None => print!("Error?")
+          }
+          if tile_offset == 0x03dd {
+            tile_offset = 0x03e2;
+          } else {
+            tile_offset += 1; 
+          }
+      }
+    }
+
+    //Middle rows
+    for row in 2..34 {
+      for column in 2..30 {
+          let tile_offset = row * column; 
+          let tile_data = video_ram[tile_offset + 0x4000] as usize; 
+          match tile_rom.get(tile_data * 16..tile_data * 16 + 16) {
+            Some(tile) => self.to_pixel_buffer(tile, row, column, pixel_buffer),
+            None => print!("Error?")
+          }
+      }
     }
   }
 
-  fn decode_sprite(&self,
-        address: usize, sprite_positions: &[u8], sprite_rom: &Vec<u8>,
-        position_y: usize, pixel_buffer: &mut Vec<u32>) {
+  pub fn decode_sprite(&self, work_ram: &[u8], sprite_rom: &[u8], pixel_buffer: &mut Vec<u32>) {
+    for sprite_number in 0..8 {
+      let offset = 0x5060 + sprite_number * 2;
+      let x_coord = work_ram[offset] as usize;
+      let y_coord = work_ram[offset + 1] as usize;
+            
+       // Lower Sixteen columns
+       for column in 0..16 {
 
-        // Select Sprite# from Sprite ROM
-        let sprite_number = (sprite_positions[0] >> 2) as usize;
-        let offset_y = position_y;
-        let offset_x = 10;
-        // Sprite #0
-        let lines_per_row = 4;
-        for block in (0..4).rev() { // Each "block" starts from the botton - up, and has 16 column by 4 rows
-              // Upper Sixteen columns
-          for column in (0..16).rev() {
-            //We need four bytes per 4 pixels , because each pixel has a 8-bit color depth
-            // thus having 8 bit planes for 4 pixels
+        //Get lowest four bits, each bit corresponding to a different pixel, plane 0
+        let low_nibble = sprite_rom[column] & 0x0F;
+        //Get hightest four bits, each bit corresponding to a different pixel, plane 1
+        let high_nibble = (sprite_rom[column] >> 4) & 0x0F;
 
-            //Get lowest four bits, each bit corresponding to a different pixel, plane 0
-            let low_nibble = sprite_rom[column + sprite_number * 64] & 0x0F;
-            //Get hightest four bits, each bit corresponding to a different pixel, plane 1
-            let high_nibble = (sprite_rom[column + sprite_number * 64] >> 4) & 0x0F;
-
-            for (i, pixel) in [ 
-              Pixel::new(low_nibble & 0x01, high_nibble & 0x01),
-              Pixel::new((low_nibble & 0x02) >> 1, (high_nibble & 0x02) >> 1),
-              Pixel::new((low_nibble & 0x04) >> 2, (high_nibble & 0x04) >> 2),
-              Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
-            ].iter().enumerate() {
-                let raw_data = pixel.to_rgba();
-                let pos = (i + 4) * self.width + column + offset_y * self.width * 8 + offset_x * 8 + block * lines_per_row;
-                pixel_buffer[pos] = raw_data;
-            }
-          }
+        for (i, pixel) in [ 
+          Pixel::new(low_nibble & 0x01, high_nibble & 0x01),
+          Pixel::new((low_nibble & 0x02) >> 1, (high_nibble & 0x02) >> 1),
+          Pixel::new((low_nibble & 0x04) >> 2, (high_nibble & 0x04) >> 2),
+          Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3) 
+        ].iter().enumerate() {
+            let raw_data = pixel.to_rgba();
+            let pos = (i + 4) * self.width + column + y_coord * self.width * 8 + x_coord * 8;
+            pixel_buffer[pos] = raw_data;
         }
+      }
     }
+  }
 
-  fn to_pixel_buffer(&self, offset: usize, tile: &[u8], pixel_buffer: &mut std::vec::Vec<u32>) {
-    if offset < 0x40 {
-      return
-    }
-      let offset_y = (offset - 0x40) % 36 as usize;
-      let offset_x = (offset - 0x40) / 36 as usize;
+ fn to_pixel_buffer(&self, tile: &[u8], offset_y: usize, offset_x: usize, pixel_buffer: &mut std::vec::Vec<u32>) {
+      // let offset_y = (offset - 0x40) % 32 as usize;
+      // let offset_x = 28 - (offset - 0x40) / 32 as usize;
       
        // Upper Eight columns
       for column in (0..8).rev() {
-        //We need four bytes per 4 pixels , because each pixel has a 8-bit color depth
+        // We need four bytes per 4 pixels , because each pixel in the pixel buffer has a 8-bit color depth
         // thus having 8 bit planes for 4 pixels
 
         //Get lowest four bits, each bit corresponding to a different pixel, plane 0
@@ -100,12 +145,6 @@ impl Decoder for TileDecoder {
         ].iter().enumerate() {
             let raw_data = pixel.to_rgba();
             let pos = (i + 4) * self.width + column + offset_y * self.width * 8 + offset_x * 8;
-            // if column == 7 && i == 3 {
-            //   println!("Last position for upper eight: {}", format!("{:#x}", pos));
-            // }
-            // if column == 0 && i == 0 {
-            //   println!("First position for upper eight: {}", format!("{:#x}", pos));
-            // }
             pixel_buffer[pos] = raw_data;
         }
       }

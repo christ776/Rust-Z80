@@ -1,5 +1,6 @@
+use ::Z80::{registers::Register16Bit, z80::Z80};
 use imgui_memory_editor::MemoryEditor;
-use std::time::Duration;
+use std::{time::Duration, u16};
 use imgui::*;
 use pixels::{wgpu, PixelsContext};
 use std::time::Instant;
@@ -13,6 +14,10 @@ pub(crate) struct Gui {
     last_cursor: Option<imgui::MouseCursor>,
     delta_s: Duration,
     pc: u16,
+    hl: u16,
+    sp: u16,
+    ix: u16,
+    iy: u16,
     video_memory_editor: Vec<u8>
 }
 
@@ -71,6 +76,10 @@ impl Gui {
             last_cursor: None,
             delta_s: Duration::new(0, 0),
             pc: 0,
+            hl: 0,
+            sp: 0,
+            ix: 0,
+            iy: 0,
             video_memory_editor: vec![0; 1024]
         }
     }
@@ -117,7 +126,11 @@ impl Gui {
         let window = imgui::Window::new(im_str!("CPU and FPS"));
         let delta = self.delta_s;
         let pc = self.pc;
-
+        let hl = self.hl;
+        let sp = self.sp;
+        let ix = self.ix;
+        let iy = self.iy;
+        
         window
             .size([400.0, 200.0], Condition::FirstUseEver)
             .position([400.0, 200.0], Condition::FirstUseEver)
@@ -125,6 +138,10 @@ impl Gui {
                 ui.text(im_str!("Frametime: {:?}",  delta));
                 ui.separator();
                 ui.text(im_str!("PC: {:?}",format!("{:#x}", pc)));
+                ui.text(im_str!("HL: {:?}",format!("{:#x}", hl)));
+                ui.text(im_str!("SP: {:?}",format!("{:#x}", sp)));
+                ui.text(im_str!("IX: {:?}",format!("{:#x}", ix)));
+                ui.text(im_str!("IY: {:?}",format!("{:#x}", iy)));
             });
 
         // Render Dear ImGui with WGPU
@@ -158,11 +175,15 @@ impl Gui {
         self.delta_s = delta
     }
 
-    pub fn update_cpu_state(&mut self, pc: u16) {
-        self.pc = pc
+    pub fn update_cpu_state(&mut self, cpu: &Z80) {
+        self.pc = cpu.r.pc;
+        self.hl = cpu.r.get_u16(Register16Bit::HL);
+        self.sp = cpu.r.sp;
+        self.ix = cpu.r.get_u16(Register16Bit::IX);
+        self.iy = cpu.r.get_u16(Register16Bit::IY);
     }
 
-    pub fn set_memory_editor_mem(&mut self, data: &Vec<u8>) {
+    pub fn set_memory_editor_mem(&mut self, data: &[u8]) {
         self.video_memory_editor = data.to_vec()
     }
 }
