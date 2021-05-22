@@ -8,6 +8,7 @@
 /// comes first and is followed by the byte that contains the most significant bits (MSB) of the value.
 
 const HEIGHT: usize = 288;
+const CPU_CLOCK: usize = 3072000;
 
 pub mod z80;
 pub const WIDTH: usize = 224;
@@ -51,18 +52,24 @@ fn main () -> Result<(), Error> {
 
     event_loop.run(move |event, _, control_flow| {
         // The one and only event that winit_input_helper doesn't have for us...
-        if let Event::MainEventsCleared = event {
-            window.request_redraw();
-        }
 
         if let Event::RedrawEventsCleared = event {
             let now = Instant::now();
             gui.update_delta_time(now - last_frame);
             gui.update_cpu_state(&world.cpu);
-            match world.memory.work_ram.get(0x4000..0x4400) {
-                Some(video_ram) => gui.set_memory_editor_mem(&video_ram),
-                None => print!("Error?")
-            }
+            // match world.memory.work_ram.get(0x4000..0x4400) {
+            //     Some(video_ram) => gui.set_memory_editor_mem(&video_ram),
+            //     None => print!("Error?")
+            // }
+
+            // Update internal state and request a redraw
+            let now = Instant::now();
+            let dt = now.duration_since(start_time);
+            start_time = now;
+    
+            // Update the game logic and request redraw
+            world.update(&dt);
+            window.request_redraw();
 
             last_frame = now;
         }
@@ -107,38 +114,15 @@ fn main () -> Result<(), Error> {
                 pixels.resize(size.width, size.height);
             }
 
-            // Update internal state and request a redraw
-            let now = Instant::now();
-            let dt = now.duration_since(start_time);
-            start_time = now;
+            // // Update internal state and request a redraw
+            // let now = Instant::now();
+            // let dt = now.duration_since(start_time);
+            // start_time = now;
     
-            // Update the game logic and request redraw
-            world.update(&dt);
-            window.request_redraw();
+            // // Update the game logic and request redraw
+            // world.update(&dt);
+            // window.request_redraw();
         }
-
-        // Handle input events
-       
-        // let elapsed_time = Instant::now().duration_since(start_time).as_millis() as u64;
-
-        // let wait_millis = match 1000 / TARGET_FPS >= elapsed_time {
-        //     true => 1000 / TARGET_FPS - elapsed_time,
-        //     false => 0
-        // };
-        // let new_inst = start_time + std::time::Duration::from_millis(wait_millis);
-        // *control_flow = ControlFlow::WaitUntil(new_inst);
-        
-
-
-        // Get a new delta time.
-        let now = Instant::now();
-        let dt = now.duration_since(start_time);
-        start_time = now;
-
-        // Update the game logic and request redraw
-        world.update(&dt);
-        window.request_redraw();
-
     });
 }
 
@@ -147,6 +131,7 @@ struct Machine {
     memory: BoardMemory,
     dt: Duration,
     pixel_buffer: Vec<u32>,
+    cycles_per_frame: usize
 }
 
 impl Machine {    
@@ -157,6 +142,7 @@ impl Machine {
             dt: Duration::default(),
             cpu: Z80::new(),
             pixel_buffer: vec![0; 65536],
+            cycles_per_frame: CPU_CLOCK / 60
         }
     }
 
@@ -173,7 +159,11 @@ impl Machine {
 
         // Working RAM ... it's a bit of a hack for now
         // &mem.work_ram.append(&mut video_ram);
-        let mut working_ram:Vec<u8> = vec![0; 5220];
+        let working_ram_size =  1024              // Video RAM (tile information)
+                + 1024              // Video RAM (tile palettes)
+                + 2032              // RAM
+                + 16;               // Sprite number
+        let mut working_ram:Vec<u8> = vec![0; working_ram_size];
         self.memory.work_ram.append(&mut working_ram);
         // ; skip the checksum test, change 30fb to: ; HACK 0
         // ; 30fb  c37431    jp      #3174		; run the game!
@@ -193,19 +183,20 @@ impl Machine {
         let one_frame = Duration::new(0, 16_666_667);
         // Advance the timer by the delta time
         self.dt += *dt;
-
         // Trigger VBLANK interrupt? 
+        let mut current_cycles = 0;
         while self.dt >= one_frame {
-            self.dt -= one_frame / 500;
-            self.cpu.exec(&mut self.memory);
+            while current_cycles <= self.cycles_per_frame {
+                current_cycles += self.cpu.exec(&mut self.memory) as usize;
+            }
+            // let sprite_rom = &self.memory.sprite_rom;
+            let work_ram = &self.memory.work_ram;
+            let tile_rom = &self.memory.tile_rom;
+            self.memory.decoder.decode_tile(work_ram, &tile_rom, &mut self.pixel_buffer);
+            // self.memory.decoder.decode_sprite(&work_ram, &&sprite_rom, &mut self.pixel_buffer);
+            self.cpu.vblank();
+            self.dt -= one_frame;
         }
-
-        let sprite_rom = &self.memory.sprite_rom;
-        let work_ram = &self.memory.work_ram;
-        let tile_rom = &self.memory.tile_rom;
-        self.memory.decoder.decode_tile(work_ram, &tile_rom, &mut self.pixel_buffer);
-        self.memory.decoder.decode_sprite(&work_ram, &&sprite_rom, &mut self.pixel_buffer);
-        self.cpu.vblank();
     }
     
     fn load_rom_mut(rom_name: &String, mem: &mut Vec<u8>) {
@@ -235,6 +226,12 @@ impl Machine {
             }
         }
        
+}
+
+impl Default for Machine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Create a window for the game.

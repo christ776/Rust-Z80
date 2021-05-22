@@ -115,13 +115,13 @@ impl Gui {
 
         // Let's try a Memory Editor!
         // Can also use a &mut [u8] if you want to use the editor to modify the slice
-        let mut memory_editor = MemoryEditor::<&[u8]>::new()
-        .draw_window(im_str!("Video Memory")) // Can omit if you don't want to create a window
-        .read_only(false);
+        // let mut memory_editor = MemoryEditor::<&[u8]>::new()
+        // .draw_window(im_str!("Video Memory")) // Can omit if you don't want to create a window
+        // .read_only(false);
 
-        if memory_editor.open() { // open() can be omitted if draw_window was not used
-            memory_editor.draw_vec(&ui, &self.video_memory_editor)
-        }
+        // if memory_editor.open() { // open() can be omitted if draw_window was not used
+        //     memory_editor.draw_vec(&ui, &self.video_memory_editor)
+        // }
 
         let window = imgui::Window::new(im_str!("CPU and FPS"));
         let delta = self.delta_s;

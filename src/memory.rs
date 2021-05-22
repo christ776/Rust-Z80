@@ -1,6 +1,5 @@
 
 use crate::WIDTH;
-// use crate::gfx_decoder::Decoder;
 use crate::gfx_decoder::TileDecoder;
 
 pub trait Memory {
@@ -100,18 +99,54 @@ impl Memory for BoardMemory {
       match address {
         0x0000..=0x3fff => {
           println!("Attempted to write to ROM!");
-          // panic!("Write Violation");
-        },     
+          panic!("Write Violation");
+        }, 
+        0x5001 => {
+          println!("Sound enabled");
+        },
+        0x5002 => {
+          // When the Ms. Pac-Man auxiliary board is connected on Pac-Man hardware in the Z80 slot,
+          // writing a 1 to this address will enable the additional functionality provided by the
+          // board, which is special behavior when reading memory locations.
+          println!("Enable Aux board");
+        },
+        0x5003 => {
+          println!("Flip screen");
+        },
+        0x5004 => {
+          // println!("1 player start lamp")
+        },
+        0x5005 => {
+          // println!("2 player start lamp")
+        },
+        0x5006 => {
+          // println!("Coin lockout")
+        },
+        0x5007 => {
+          // println!("Coin counter")
+        },
+        0x5040..=0x504f => {
+          //Sound voice 1
+        },
+        0x5050..=0x505f => {
+          //Voice 1 frequency
+        }
+        0x5060..=0x506f => {
+          //Write Sprite coordinates
+        }
         // },
         // 0x5040..=0x505f => {    
         //     println!("Sound tests at {} with {}", format!("{:#x}", address), data)
         // },
-        // 0x5070..=0x50bf => {    
-        //   println!("??? {} with {}", format!("{:#x}", address), data)
-        // },
-        // 0x50c0..=0x50ff => {    
-        //   // println!("Watchdog reset")
-        // },
+        0x5070..=0x50bf => {    
+          println!("??? {} with {}", format!("{:#x}", address), data)
+        },
+        0x50c0..=0x50ff => {    
+          // Watchdog reset (each byte has the same function)
+          // This would write values that the watchdog would look for to determine if the game
+          // code had locked up or not. Since I'm not implementing the watchdog hardware I don't
+          // need to implement this.
+        },
         _ => self.work_ram[address  as usize] = data,
       }
     }
@@ -138,7 +173,6 @@ impl Memory for BoardMemory {
     }
 
     fn r8(&self, addr: u16) -> u8 {
-      let address= addr & 0x7fff;
       match addr {
         0x5000 => { // Read IN0: Joystick and coin slot
           0b1111_1111
@@ -155,7 +189,7 @@ impl Memory for BoardMemory {
         // 0x5100..=0xffff => {
         //   0
         // }
-        _ => self.work_ram[address as usize]
+        _ => self.work_ram[addr as usize]
       }
   }
 }

@@ -1383,6 +1383,72 @@ use Z80::z80::Z80;
     }
 
     #[test]
+    fn sub8() {
+        let mut cpu = Z80::new();
+        cpu.r.a = 0x04;
+        cpu.sub_n(0x04);
+        assert_eq!(0x00, cpu.r.a);
+        assert!(cpu.r.f.contains(Flags::NEGATIVE | Flags::ZERO));
+        cpu.sub_n(0x01);
+        assert_eq!(0xFF, cpu.r.a);
+        assert!(cpu.r.f.contains(Flags::SIGN | Flags::HALFCARRY | Flags::NEGATIVE | Flags::CARRY));
+        cpu.sub_n(0xF8);
+        assert_eq!(0x07, cpu.r.a);
+        assert!(cpu.r.f.contains(Flags::NEGATIVE));
+        cpu.sub_n(0x0F);
+        assert_eq!(0xF8, cpu.r.a);
+        assert!(cpu.r.f.contains(Flags::SIGN | Flags::HALFCARRY | Flags::NEGATIVE | Flags::CARRY));
+    }
+
+    #[test]
+    fn test_neg() {
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        let prog = [
+            0x3E, 0x01,         // LD A,0x01
+            0xED, 0x44,         // NEG
+            0xC6, 0x01,         // ADD A,0x01
+            0xED, 0x44,         // NEG
+            0xD6, 0x80,         // SUB A,0x80
+            0xED, 0x44,         // NEG
+            0xC6, 0x40,         // ADD A,0x40
+            0xED, 0x44,         // NEG
+            0x3E, 0x7f,         // LD A,0x7F
+            0xED, 0x44,         // NEG
+            0x3E, 0xa5,         // LD A,0xa5
+            0xED, 0x44,         // NEG
+            0x3E, 0xff,         // LD A,0xff
+            0xED, 0x44,         // NEG
+        ];
+        mem.write(0x0000, &prog);
+        cpu.exec(&mut mem);
+        assert_eq!(0x01, cpu.r.a);
+        cpu.exec(&mut mem);
+        assert_eq!(0xFF, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN | Flags::HALFCARRY | Flags::NEGATIVE | Flags::CARRY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::ZERO | Flags::HALFCARRY | Flags::CARRY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::NEGATIVE | Flags::ZERO));
+        cpu.exec(&mut mem);
+        assert_eq!(0x80, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN | Flags::PARITY | Flags::NEGATIVE | Flags::CARRY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x80, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN | Flags::PARITY | Flags::NEGATIVE | Flags::CARRY));
+        cpu.exec(&mut mem);
+        assert_eq!(0xC0, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
+        cpu.exec(&mut mem);
+        assert_eq!(0x40, cpu.r.a); assert!(cpu.r.f.contains(Flags::NEGATIVE | Flags::CARRY));
+        cpu.exec(&mut mem);
+        cpu.exec(&mut mem);
+        assert_eq!(0x81, cpu.r.a);
+        cpu.exec(&mut mem);
+        cpu.exec(&mut mem);
+        assert_eq!(0x5b, cpu.r.a);
+        cpu.exec(&mut mem);
+        cpu.exec(&mut mem);
+        assert_eq!(0x01, cpu.r.a);
+    }
+
+    #[test]
     fn test_sla_r() {
         let mut cpu = Z80::new();
         let mut mem = PlainMemory::new_64k();

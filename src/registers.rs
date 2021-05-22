@@ -17,9 +17,9 @@ bitflags!{
       const CARRY = 0x01;
       const NEGATIVE = 0x02;
       const PARITY = 0x04;
-      const COPY_BIT_3 = 0x08;
+      const X = 0x08;
       const HALFCARRY = 0x10;
-      const COPY_BIT_5 = 0x20;
+      const Y = 0x20;
       const ZERO = 0x40;
       const SIGN = 0x80;
   }
