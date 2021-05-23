@@ -87,7 +87,7 @@ impl TileDecoder {
     //Middle rows
     for column in 0..28 {
       for row in 0..32 {
-          let tile_offset = row + column * 32 + 0x40; 
+          let tile_offset = row + (27 - column) * 32 + 0x40; 
           let tile_data = video_ram[tile_offset + 0x4000] as usize; 
           match tile_rom.get(tile_data * 16..tile_data * 16 + 16) {
             Some(tile) => self.to_pixel_buffer(tile, row, column, pixel_buffer),
