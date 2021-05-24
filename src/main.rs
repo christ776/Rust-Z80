@@ -113,15 +113,6 @@ fn main () -> Result<(), Error> {
             if let Some(size) = input.window_resized() {
                 pixels.resize(size.width, size.height);
             }
-
-            // // Update internal state and request a redraw
-            // let now = Instant::now();
-            // let dt = now.duration_since(start_time);
-            // start_time = now;
-    
-            // // Update the game logic and request redraw
-            // world.update(&dt);
-            // window.request_redraw();
         }
     });
 }
