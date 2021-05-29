@@ -1,5 +1,5 @@
 
-use crate::WIDTH;
+use crate::{HEIGHT, WIDTH};
 use crate::gfx_decoder::TileDecoder;
 
 pub trait Memory {
@@ -81,7 +81,7 @@ impl Memory for BoardMemory {
         work_ram: Vec::new(),
         tile_rom: Vec::new(),
         sprite_rom: Vec::new(),
-        decoder: TileDecoder::new(WIDTH),
+        decoder: TileDecoder::new(WIDTH, HEIGHT),
       }
     }
 
@@ -90,7 +90,7 @@ impl Memory for BoardMemory {
         work_ram: vec![0; 65536],
         tile_rom: vec![0],
         sprite_rom: vec![0],
-        decoder: TileDecoder::new(WIDTH)
+        decoder: TileDecoder::new(WIDTH, HEIGHT)
       }
     }
 
@@ -133,6 +133,7 @@ impl Memory for BoardMemory {
         }
         0x5060..=0x506f => {
           //Write Sprite coordinates
+          self.decoder.update_sprite_coordinates((address - 0x5060).into(), data);
         }
         // },
         // 0x5040..=0x505f => {    

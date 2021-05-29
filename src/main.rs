@@ -180,11 +180,13 @@ impl Machine {
             while current_cycles <= self.cycles_per_frame {
                 current_cycles += self.cpu.exec(&mut self.memory) as usize;
             }
-            // let sprite_rom = &self.memory.sprite_rom;
+            let sprite_rom = &self.memory.sprite_rom;
             let work_ram = &self.memory.work_ram;
             let tile_rom = &self.memory.tile_rom;
-            self.memory.decoder.decode_tile(work_ram, &tile_rom, &mut self.pixel_buffer);
-            // self.memory.decoder.decode_sprite(&work_ram, &&sprite_rom, &mut self.pixel_buffer);
+            self.memory.decoder.decode_tile(&work_ram[0x4000..0x4400], 
+                &tile_rom, &mut self.pixel_buffer);
+            self.memory.decoder.decode_sprite(&work_ram[0x4ff0..0x4FFF],
+                 &&sprite_rom, &mut self.pixel_buffer);
             self.cpu.vblank();
             self.dt -= one_frame;
         }

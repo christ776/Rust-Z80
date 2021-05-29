@@ -501,6 +501,7 @@ impl Z80 {
             0x27 => { self.sla_m(A, memory) },
             0x46 => { self.bit(0, Address::HL, memory) },
             0x47 => { self.bit(0, A, memory) },
+            0x67 => { self.bit(4, A, memory) },
             0x4e => { self.bit(1, Address::HL, memory) },
             0x56 => { self.bit(2, Address::HL, memory) },
             0x5e => { self.bit(3, Address::HL, memory) },
@@ -509,6 +510,7 @@ impl Z80 {
             0x76 => { self.bit(6, Address::HL, memory) },
             0x7e => { self.bit(7, Address::HL, memory) },
             0x86 => { self.res_b_hl(0, Address::HL, memory) },
+            0xBE => { self.res_b_hl(7, Address::HL, memory) },
             0xC0..=0xff => {
               let bit = (op & 0x38) >> 3;
               let r = op & 0x07;
@@ -985,6 +987,15 @@ impl Z80 {
     r.write_u8(self, value & mask, mem);
     self.step();
     15
+  }
+
+  #[inline]
+  fn reset_r<RW: ReadU8 + WriteU8>(&mut self, bit: u8, r: RW, mem: &mut dyn Memory) -> u8 {
+    let value = r.read_u8(self, mem);
+    let mask = 1 << bit ^ 0xFF;
+    r.write_u8(self, value & mask, mem);
+    self.step();
+    8
   }
 
   #[inline]
