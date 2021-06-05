@@ -247,538 +247,547 @@ impl Z80 {
     let pc = self.r.pc;
     // println!("pc {}", format!("{:#x}", self.r.pc));
     let op = memory.r8(pc);
+    
+    let cycles = self.execute_op(op, memory);
+    // let last_executed_op = op;
+    cycles
+  }
 
+  fn execute_op (& mut self, op: u8, memory: &mut dyn Memory) -> u8 {
     match op {
-        0x00 => { self.nop() },
-        0x0f => { self.rrca(A, memory) },
-        0xf3 => { self.di() },
-        0x01 => { self.ld_dd_nn(BC,NextU16, memory) },
-        0x11 => { self.ld_dd_nn(DE,NextU16, memory) },
-        0x21 => { self.ld_dd_nn(HL,NextU16, memory) },
-        0x31 => { self.ld_dd_nn(SP,NextU16, memory) },
-        0x07 => {self.rlca(A, memory) },
-        0x08 => { self.ex_ss_ss(AF, AF2, memory) },
-        0x17 => {self.rl_m(A, memory) },
-        0x1f => {self.rra(A, memory) },
-        0x09 => { self.add_hl_ss(HL, BC, memory) },
-        0x19 => { self.add_hl_ss(HL, DE, memory) },
-        0x29 => { self.add_hl_ss(HL, HL, memory) },
-        0x39 => { self.add_hl_ss(HL, SP, memory) },
-        0x10 => { self.djnz(NextU8, memory) },
-        0x02 => { self.ld_8_nn(Address::BC, A, memory) },
-        0x12 => { self.ld_8_nn(Address::DE, A, memory) },
-        0x18 => { self.jr_e(NextU8, memory) },
-        0x20 => { self.jr_conditional(Condition::NOTZERO, memory) },
-        0x30 => { self.jr_conditional(Condition::NOTCARRY, memory) },
-        0x38 => { self.jr_conditional(Condition::CARRY, memory) },
-        0x28 => { self.jr_conditional(Condition::ZERO, memory) },
-        0x37 => { self.scf() }
-        0x27 => { self.daa() }
-        0x5 => { self.dec_r(B, memory) },
-        0x0d => { self.dec_r(C, memory) },
-        0x15 => { self.dec_r(D, memory) },
-        0x1d => { self.dec_r(E, memory) },
-        0x25 => { self.dec_r(H, memory) },
-        0x2d => { self.dec_r(L, memory) },
-        0x3d => { self.dec_r(A, memory) },
-        0x35 => { self.dec_r(Address::HL, memory) },
-        0x03 => { self.inc_ss(BC, memory)},
-        0x13 => { self.inc_ss(DE, memory)},
-        0x23 => { self.inc_ss(HL, memory)},
-        0x33 => { self.inc_ss(SP, memory)},
-        0x34 => { self.inc_r(Address::HL, memory)},
-        0x2a => { self.ld_hl_nn(NextU16, memory) },
-        0x0b => { self.dec_ss(BC, memory) },
-        0x1b => { self.dec_ss(DE, memory) },
-        0x2b => { self.dec_ss(HL, memory) },
-        0x3b => { self.dec_ss(SP, memory) },
-        0x04 => { self.inc_r(B, memory) },
-        0x0c => { self.inc_r(C, memory) },
-        0x14 => { self.inc_r(D, memory) },
-        0x1c => { self.inc_r(E, memory) },
-        0x24 => { self.inc_r(H, memory) },
-        0x2c => { self.inc_r(L, memory) },
-        0x3c => { self.inc_r(A, memory) },
-        0x3f => { self.ccf() },
-        0x2f => { self.cpl() },
-        0x32 => { self.ld_nn_a(A, NextU16, memory)},
-        0x22 => { self.ld_nn_hl(NextU16, HL, memory)},
-        0x36 => { 
-          let cyc = self.ld_hl_r(Register16Bit::HL, NextU8, memory);
-          self.step();
-          cyc
-        },
-        0x3a => { self.ld_a_nn(NextU16, memory)},
-        0x06 => { 
-          let cyc = self.ld_r_r(B, NextU8, memory);
-          self.step();
-          cyc
-        },
-        0x0e => { 
-          let cyc = self.ld_r_r(C, NextU8, memory);
-          self.step();
-          cyc
-        },
-        0x16 => { 
-          let cyc = self.ld_r_r(D, NextU8, memory);
-          self.step();
-          cyc
-        },
-        0x1e => { 
-          let cyc = self.ld_r_r(E, NextU8, memory);
-          self.step();
-          cyc
-        },
-        0x26 => { 
-          let cyc = self.ld_r_r(H, NextU8, memory);
-          self.step();
-          cyc
-        },
-        0x2e => { 
-          let cyc = self.ld_r_r(L, NextU8, memory);
-          self.step();
-          cyc
-        },
-        0x3e => { 
-          let cyc = self.ld_r_r(A, NextU8, memory);
-          self.step();
-          cyc
-        },
-        0xb6 => { self.or_r(Address::HL, memory) },
-        0x88 => { self.adc_r(B, memory)},
-        0x89 => { self.adc_r(C, memory)},
-        0x8a => { self.adc_r(D, memory)},
-        0x8b => { self.adc_r(E, memory)},
-        0x8c => { self.adc_r(H, memory)},
-        0x8d => { self.adc_r(L, memory)},
-        0x8e => { self.adc_r(Address::HL, memory)},
-        0x8f => { self.adc_r(A, memory)} 
-        0xce => { 
-          let cyc = self.adc_r(NextU8, memory);
-          self.step();
-          cyc
-         },
-        0x6f => { self.ld_r_r(L,A, memory)},
-        0x44 => { self.ld_r_r(B,H, memory)},
-        0x40 => { self.ld_r_r(B,B, memory)},
-        0x47 => { self.ld_r_r(B,A, memory)},
-        0x48 => { self.ld_r_r(C,B, memory)},
-        0x49 => { self.ld_r_r(C,C, memory)},
-        0x4a => { self.ld_r_r(C,D, memory)},
-        0x4c => { self.ld_r_r(C,H, memory)},
-        0x4f => { self.ld_r_r(C,A, memory)},
-        0x50 => { self.ld_r_r(D,B, memory)},
-        0x51 => { self.ld_r_r(D,C, memory)},
-        0x52 => { self.ld_r_r(D,D, memory)},
-        0x53 => { self.ld_r_r(D,E, memory)},
-        0x54 => { self.ld_r_r(D,H, memory)},
-        0x55 => { self.ld_r_r(D,L, memory)},
-        0x5b => { self.ld_r_r(E,E, memory)},
-        0x5c => { self.ld_r_r(C,H, memory)}, 
-        0x5d => { self.ld_r_r(E,L, memory)},
-        0x5f => { self.ld_r_r(E,A, memory)},
-        0x58 => { self.ld_r_r(C,B, memory)},
-        0x61 => { self.ld_r_r(H,C, memory)},
-        0x62 => { self.ld_r_r(H,D, memory)},
-        0x63 => { self.ld_r_r(H,E, memory)},
-        0x64 => { self.ld_r_r(H,H, memory)},
-        0x65 => { self.ld_r_r(H,L, memory)},
-        0x67 => { self.ld_r_r(H,A, memory)},
-        0x68 => { self.ld_r_r(H,A, memory)},
-        0x6a => { self.ld_r_r(L,D, memory)},
-        0x6c => { self.ld_r_r(L,H, memory)},
-        0x78 => { self.ld_r_r(A,B, memory)},
-        0x79 => { self.ld_r_r(A,C, memory)},
-        0x7a => { self.ld_r_r(A,D, memory)},
-        0x7b => { self.ld_r_r(A,E, memory)},
-        0x7c => { self.ld_r_r(A,H, memory)},
-        0x7d => { self.ld_r_r(A,L, memory)},
-        0x4e => { self.ld_r_hl(C, Address::HL, memory)},
-        0x1a => { self.ld_r_hl(A, Address::DE, memory)},
-        0x0a => { self.ld_r_hl(A, Address::BC, memory)},
-        0x46 => { self.ld_r_hl(B, Address::HL, memory)},
-        0x56 => { self.ld_r_hl(D, Address::HL, memory)},
-        0x5e => { self.ld_r_hl(E, Address::HL, memory)},
-        0x66 => { self.ld_r_hl(H, Address::HL, memory)},
-        0x6e => { self.ld_r_hl(L, Address::HL, memory)},
-        0x7e => { self.ld_r_hl(A, Address::HL, memory)},
-        0x70 => { self.ld_hl_r(Register16Bit::HL,B, memory)},
-        0x71 => { self.ld_hl_r(Register16Bit::HL,C, memory)},
-        0x72 => { self.ld_hl_r(Register16Bit::HL,D, memory)},
-        0x73 => { self.ld_hl_r(Register16Bit::HL,E, memory)},
-        0x74 => { self.ld_hl_r(Register16Bit::HL,H, memory)},
-        0x75 => { self.ld_hl_r(Register16Bit::HL,L, memory)},
-        0x77 => { self.ld_hl_r(Register16Bit::HL,A, memory)},
-        0x76 => { self.halt()},
-        0x80 => { self.add_a_r(B, memory)},
-        0x81 => { self.add_a_r(C, memory)},
-        0x82 => { self.add_a_r(D, memory)},
-        0x83 => { self.add_a_r(E, memory)},
-        0x84 => { self.add_a_r(H, memory)},
-        0x85 => { self.add_a_r(L, memory)},
-        0x86 => { self.add_a_r(Address::HL, memory)},
-        0x87 => { self.add_a_r(A, memory)}, 
-        0x90 => { self.sub_r(B, memory) },
-        0x91 => { self.sub_r(C, memory) },
-        0x92 => { self.sub_r(D, memory) },
-        0x93 => { self.sub_r(E, memory) },
-        0x94 => { self.sub_r(H, memory) },
-        0x95 => { self.sub_r(L, memory) },
-        0x96 => { self.sub_r(Address::HL, memory) },
-        0x97 => { self.sub_r(A, memory) },
-        0x98 => { self.sbc_r(B, memory)},
-        0x99 => { self.sbc_r(C, memory)},
-        0x9A => { self.sbc_r(D, memory)},
-        0x9B => { self.sbc_r(E, memory)},
-        0x9C => { self.sbc_r(H, memory)},
-        0x9D => { self.sbc_r(L, memory)},
-        0x9E => { self.sbc_r(Address::HL, memory)},
-        0x9F => { self.sbc_r(A, memory)},
-        0xDE => { 
-          let cyc = self.sbc_r(NextU8, memory);
-          self.step();
-          cyc
-        },
-        0xa0 => {self.and_r(B, memory)},
-        0xa1 => {self.and_r(C, memory)},
-        0xa2 => {self.and_r(D, memory)},
-        0xa3 => {self.and_r(E, memory)}
-        0xa4 => {self.and_r(H, memory)}
-        0xa5 => {self.and_r(L, memory)},
-        0xa6 => {self.and_r(Address::HL, memory)},
-        0xa7 => {self.and_r(A, memory)},
-        0xe6 => { 
-          let cyc = self.and_r(NextU8, memory);
-          self.step();
-          cyc
-        },
-        0xa8 => { self.xor_r(B, memory) },
-        0xa9 => { self.xor_r(C, memory) },
-        0xaa => { self.xor_r(D, memory) },
-        0xab => { self.xor_r(E, memory) },
-        0xac => { self.xor_r(H, memory) },
-        0xad => { self.xor_r(L, memory) },
-        0xaf => { self.xor_r(A, memory) },
-        0xae => { self.xor_r(Address::HL, memory) },
-        0xee => { 
-          let cyc = self.xor_r(NextU8, memory);
-          self.step();
-          cyc
-        },
-        0xb0 => { self.or_r(B, memory) },
-        0xb1 => { self.or_r(C, memory) },
-        0xb2 => { self.or_r(D, memory) },
-        0xb3 => { self.or_r(E, memory) },
-        0xb4 => { self.or_r(H, memory) },
-        0xb5 => { self.or_r(L, memory) },
-        0xb7 => { self.or_r(A, memory) },
-        0xc0 => {self.ret_cc(Condition::NOTZERO, memory)},
-        0xc8 => {self.ret_cc(Condition::ZERO, memory)},
-        0xd0 => {self.ret_cc(Condition::NOTCARRY, memory)},
-        0xd8 => {self.ret_cc(Condition::CARRY, memory)},
-        0xe0 => {self.ret_cc(Condition::PARITYODD, memory)},
-        0xe8 => {self.ret_cc(Condition::PARITYEVEN, memory)},
-        0xf0 => {self.ret_cc(Condition::POSITIVE, memory)},
-        0xf8 => {self.ret_cc(Condition::NEGATIVE, memory)},
-        0xc3 => { self.jmp(NextU16, memory) },
-        0xc6 => {
-          let cyc = self.add_a_r(NextU8, memory); 
-           self.step();
-           cyc
-        },
-        0xc9 => {self.ret(memory)},
-        0xcb => {  // Bit Instructions
-          let op = self.next_u8(memory);
-          self.step();
-          match op {
-            0x10 => { self.rl_m(B, memory) },
-            0x20 => { self.sla_m(B, memory) },
-            0x21 => { self.sla_m(C, memory) },
-            0x22 => { self.sla_m(D, memory) },
-            0x23 => { self.sla_m(E, memory) },
-            0x24 => { self.sla_m(H, memory) },
-            0x25 => { self.sla_m(L, memory) },
-            0x27 => { self.sla_m(A, memory) },
-            0x46 => { self.bit(0, Address::HL, memory) },
-            0x47 => { self.bit(0, A, memory) },
-            0x67 => { self.bit(4, A, memory) },
-            0x4e => { self.bit(1, Address::HL, memory) },
-            0x56 => { self.bit(2, Address::HL, memory) },
-            0x5e => { self.bit(3, Address::HL, memory) },
-            0x66 => { self.bit(4, Address::HL, memory) },
-            0x6e => { self.bit(5, Address::HL, memory) },
-            0x76 => { self.bit(6, Address::HL, memory) },
-            0x7e => { self.bit(7, Address::HL, memory) },
-            0x86 => { self.res_b_hl(0, Address::HL, memory) },
-            0xBE => { self.res_b_hl(7, Address::HL, memory) },
-            0xC0..=0xff => {
-              let bit = (op & 0x38) >> 3;
-              let r = op & 0x07;
-              match r {
-                0x0 =>  self.set_r(bit, B, memory),
-                0x1 =>  self.set_r(bit, C, memory),
-                0x2 =>  self.set_r(bit, D, memory),
-                0x4 =>  self.set_r(bit, H, memory),
-                0x3 =>  self.set_r(bit, E, memory),
-                0x5 =>  self.set_r(bit, L, memory),
-                0x7 =>  self.set_r(bit, A, memory),
-                _ => { 0 }
-              }
+      0x00 => { self.nop() },
+      0x0f => { self.rrca(A, memory) },
+      0xf3 => { self.di() },
+      0x01 => { self.ld_dd_nn(BC,NextU16, memory) },
+      0x11 => { self.ld_dd_nn(DE,NextU16, memory) },
+      0x21 => { self.ld_dd_nn(HL,NextU16, memory) },
+      0x31 => { self.ld_dd_nn(SP,NextU16, memory) },
+      0x07 => {self.rlca(A, memory) },
+      0x08 => { self.ex_ss_ss(AF, AF2, memory) },
+      0x17 => {self.rl_m(A, memory) },
+      0x1f => {self.rra(A, memory) },
+      0x09 => { self.add_hl_ss(HL, BC, memory) },
+      0x19 => { self.add_hl_ss(HL, DE, memory) },
+      0x29 => { self.add_hl_ss(HL, HL, memory) },
+      0x39 => { self.add_hl_ss(HL, SP, memory) },
+      0x10 => { self.djnz(NextU8, memory) },
+      0x02 => { self.ld_8_nn(Address::BC, A, memory) },
+      0x12 => { self.ld_8_nn(Address::DE, A, memory) },
+      0x18 => { self.jr_e(NextU8, memory) },
+      0x20 => { self.jr_conditional(Condition::NOTZERO, memory) },
+      0x30 => { self.jr_conditional(Condition::NOTCARRY, memory) },
+      0x38 => { self.jr_conditional(Condition::CARRY, memory) },
+      0x28 => { self.jr_conditional(Condition::ZERO, memory) },
+      0x37 => { self.scf() }
+      0x27 => { self.daa() }
+      0x5 => { self.dec_r(B, memory) },
+      0x0d => { self.dec_r(C, memory) },
+      0x15 => { self.dec_r(D, memory) },
+      0x1d => { self.dec_r(E, memory) },
+      0x25 => { self.dec_r(H, memory) },
+      0x2d => { self.dec_r(L, memory) },
+      0x3d => { self.dec_r(A, memory) },
+      0x35 => { self.dec_r(Address::HL, memory) },
+      0x03 => { self.inc_ss(BC, memory)},
+      0x13 => { self.inc_ss(DE, memory)},
+      0x23 => { self.inc_ss(HL, memory)},
+      0x33 => { self.inc_ss(SP, memory)},
+      0x34 => { self.inc_r(Address::HL, memory)},
+      0x2a => { self.ld_hl_nn(NextU16, memory) },
+      0x0b => { self.dec_ss(BC, memory) },
+      0x1b => { self.dec_ss(DE, memory) },
+      0x2b => { self.dec_ss(HL, memory) },
+      0x3b => { self.dec_ss(SP, memory) },
+      0x04 => { self.inc_r(B, memory) },
+      0x0c => { self.inc_r(C, memory) },
+      0x14 => { self.inc_r(D, memory) },
+      0x1c => { self.inc_r(E, memory) },
+      0x24 => { self.inc_r(H, memory) },
+      0x2c => { self.inc_r(L, memory) },
+      0x3c => { self.inc_r(A, memory) },
+      0x3f => { self.ccf() },
+      0x2f => { self.cpl() },
+      0x32 => { self.ld_nn_a(A, NextU16, memory)},
+      0x22 => { self.ld_nn_hl(NextU16, HL, memory)},
+      0x36 => { 
+        let cyc = self.ld_hl_r(Register16Bit::HL, NextU8, memory);
+        self.step();
+        cyc
+      },
+      0x3a => { self.ld_a_nn(NextU16, memory)},
+      0x06 => { 
+        let cyc = self.ld_r_r(B, NextU8, memory);
+        self.step();
+        cyc
+      },
+      0x0e => { 
+        let cyc = self.ld_r_r(C, NextU8, memory);
+        self.step();
+        cyc
+      },
+      0x16 => { 
+        let cyc = self.ld_r_r(D, NextU8, memory);
+        self.step();
+        cyc
+      },
+      0x1e => { 
+        let cyc = self.ld_r_r(E, NextU8, memory);
+        self.step();
+        cyc
+      },
+      0x26 => { 
+        let cyc = self.ld_r_r(H, NextU8, memory);
+        self.step();
+        cyc
+      },
+      0x2e => { 
+        let cyc = self.ld_r_r(L, NextU8, memory);
+        self.step();
+        cyc
+      },
+      0x3e => { 
+        let cyc = self.ld_r_r(A, NextU8, memory);
+        self.step();
+        cyc
+      },
+      0xb6 => { self.or_r(Address::HL, memory) },
+      0x88 => { self.adc_r(B, memory)},
+      0x89 => { self.adc_r(C, memory)},
+      0x8a => { self.adc_r(D, memory)},
+      0x8b => { self.adc_r(E, memory)},
+      0x8c => { self.adc_r(H, memory)},
+      0x8d => { self.adc_r(L, memory)},
+      0x8e => { self.adc_r(Address::HL, memory)},
+      0x8f => { self.adc_r(A, memory)} 
+      0xce => { 
+        let cyc = self.adc_r(NextU8, memory);
+        self.step();
+        cyc
+       },
+      0x6f => { self.ld_r_r(L,A, memory)},
+      0x44 => { self.ld_r_r(B,H, memory)},
+      0x40 => { self.ld_r_r(B,B, memory)},
+      0x47 => { self.ld_r_r(B,A, memory)},
+      0x48 => { self.ld_r_r(C,B, memory)},
+      0x49 => { self.ld_r_r(C,C, memory)},
+      0x4a => { self.ld_r_r(C,D, memory)},
+      0x4c => { self.ld_r_r(C,H, memory)},
+      0x4f => { self.ld_r_r(C,A, memory)},
+      0x50 => { self.ld_r_r(D,B, memory)},
+      0x51 => { self.ld_r_r(D,C, memory)},
+      0x52 => { self.ld_r_r(D,D, memory)},
+      0x53 => { self.ld_r_r(D,E, memory)},
+      0x54 => { self.ld_r_r(D,H, memory)},
+      0x55 => { self.ld_r_r(D,L, memory)},
+      0x5b => { self.ld_r_r(E,E, memory)},
+      0x5c => { self.ld_r_r(C,H, memory)}, 
+      0x5d => { self.ld_r_r(E,L, memory)},
+      0x5f => { self.ld_r_r(E,A, memory)},
+      0x58 => { self.ld_r_r(C,B, memory)},
+      0x61 => { self.ld_r_r(H,C, memory)},
+      0x62 => { self.ld_r_r(H,D, memory)},
+      0x63 => { self.ld_r_r(H,E, memory)},
+      0x64 => { self.ld_r_r(H,H, memory)},
+      0x65 => { self.ld_r_r(H,L, memory)},
+      0x67 => { self.ld_r_r(H,A, memory)},
+      0x68 => { self.ld_r_r(H,A, memory)},
+      0x6a => { self.ld_r_r(L,D, memory)},
+      0x6c => { self.ld_r_r(L,H, memory)},
+      0x78 => { self.ld_r_r(A,B, memory)},
+      0x79 => { self.ld_r_r(A,C, memory)},
+      0x7a => { self.ld_r_r(A,D, memory)},
+      0x7b => { self.ld_r_r(A,E, memory)},
+      0x7c => { self.ld_r_r(A,H, memory)},
+      0x7d => { self.ld_r_r(A,L, memory)},
+      0x4e => { self.ld_r_hl(C, Address::HL, memory)},
+      0x1a => { self.ld_r_hl(A, Address::DE, memory)},
+      0x0a => { self.ld_r_hl(A, Address::BC, memory)},
+      0x46 => { self.ld_r_hl(B, Address::HL, memory)},
+      0x56 => { self.ld_r_hl(D, Address::HL, memory)},
+      0x5e => { self.ld_r_hl(E, Address::HL, memory)},
+      0x66 => { self.ld_r_hl(H, Address::HL, memory)},
+      0x6e => { self.ld_r_hl(L, Address::HL, memory)},
+      0x7e => { self.ld_r_hl(A, Address::HL, memory)},
+      0x70 => { self.ld_hl_r(Register16Bit::HL,B, memory)},
+      0x71 => { self.ld_hl_r(Register16Bit::HL,C, memory)},
+      0x72 => { self.ld_hl_r(Register16Bit::HL,D, memory)},
+      0x73 => { self.ld_hl_r(Register16Bit::HL,E, memory)},
+      0x74 => { self.ld_hl_r(Register16Bit::HL,H, memory)},
+      0x75 => { self.ld_hl_r(Register16Bit::HL,L, memory)},
+      0x77 => { self.ld_hl_r(Register16Bit::HL,A, memory)},
+      0x76 => { self.halt()},
+      0x80 => { self.add_a_r(B, memory)},
+      0x81 => { self.add_a_r(C, memory)},
+      0x82 => { self.add_a_r(D, memory)},
+      0x83 => { self.add_a_r(E, memory)},
+      0x84 => { self.add_a_r(H, memory)},
+      0x85 => { self.add_a_r(L, memory)},
+      0x86 => { self.add_a_r(Address::HL, memory)},
+      0x87 => { self.add_a_r(A, memory)}, 
+      0x90 => { self.sub_r(B, memory) },
+      0x91 => { self.sub_r(C, memory) },
+      0x92 => { self.sub_r(D, memory) },
+      0x93 => { self.sub_r(E, memory) },
+      0x94 => { self.sub_r(H, memory) },
+      0x95 => { self.sub_r(L, memory) },
+      0x96 => { self.sub_r(Address::HL, memory) },
+      0x97 => { self.sub_r(A, memory) },
+      0x98 => { self.sbc_r(B, memory)},
+      0x99 => { self.sbc_r(C, memory)},
+      0x9A => { self.sbc_r(D, memory)},
+      0x9B => { self.sbc_r(E, memory)},
+      0x9C => { self.sbc_r(H, memory)},
+      0x9D => { self.sbc_r(L, memory)},
+      0x9E => { self.sbc_r(Address::HL, memory)},
+      0x9F => { self.sbc_r(A, memory)},
+      0xDE => { 
+        let cyc = self.sbc_r(NextU8, memory);
+        self.step();
+        cyc
+      },
+      0xa0 => {self.and_r(B, memory)},
+      0xa1 => {self.and_r(C, memory)},
+      0xa2 => {self.and_r(D, memory)},
+      0xa3 => {self.and_r(E, memory)}
+      0xa4 => {self.and_r(H, memory)}
+      0xa5 => {self.and_r(L, memory)},
+      0xa6 => {self.and_r(Address::HL, memory)},
+      0xa7 => {self.and_r(A, memory)},
+      0xe6 => { 
+        let cyc = self.and_r(NextU8, memory);
+        self.step();
+        cyc
+      },
+      0xa8 => { self.xor_r(B, memory) },
+      0xa9 => { self.xor_r(C, memory) },
+      0xaa => { self.xor_r(D, memory) },
+      0xab => { self.xor_r(E, memory) },
+      0xac => { self.xor_r(H, memory) },
+      0xad => { self.xor_r(L, memory) },
+      0xaf => { self.xor_r(A, memory) },
+      0xae => { self.xor_r(Address::HL, memory) },
+      0xee => { 
+        let cyc = self.xor_r(NextU8, memory);
+        self.step();
+        cyc
+      },
+      0xb0 => { self.or_r(B, memory) },
+      0xb1 => { self.or_r(C, memory) },
+      0xb2 => { self.or_r(D, memory) },
+      0xb3 => { self.or_r(E, memory) },
+      0xb4 => { self.or_r(H, memory) },
+      0xb5 => { self.or_r(L, memory) },
+      0xb7 => { self.or_r(A, memory) },
+      0xc0 => {self.ret_cc(Condition::NOTZERO, memory)},
+      0xc8 => {self.ret_cc(Condition::ZERO, memory)},
+      0xd0 => {self.ret_cc(Condition::NOTCARRY, memory)},
+      0xd8 => {self.ret_cc(Condition::CARRY, memory)},
+      0xe0 => {self.ret_cc(Condition::PARITYODD, memory)},
+      0xe8 => {self.ret_cc(Condition::PARITYEVEN, memory)},
+      0xf0 => {self.ret_cc(Condition::POSITIVE, memory)},
+      0xf8 => {self.ret_cc(Condition::NEGATIVE, memory)},
+      0xc3 => { self.jmp(NextU16, memory) },
+      0xc6 => {
+        let cyc = self.add_a_r(NextU8, memory); 
+         self.step();
+         cyc
+      },
+      0xc9 => {self.ret(memory)},
+      0xcb => {  // Bit Instructions
+        let op = self.next_u8(memory);
+        self.step();
+        match op {
+          0x10 => { self.rl_m(B, memory) },
+          0x20 => { self.sla_m(B, memory) },
+          0x21 => { self.sla_m(C, memory) },
+          0x22 => { self.sla_m(D, memory) },
+          0x23 => { self.sla_m(E, memory) },
+          0x24 => { self.sla_m(H, memory) },
+          0x25 => { self.sla_m(L, memory) },
+          0x27 => { self.sla_m(A, memory) },
+          0x46 => { self.bit(0, Address::HL, memory) },
+          0x47 => { self.bit(0, A, memory) },
+          0x67 => { self.bit(4, A, memory) },
+          0x4e => { self.bit(1, Address::HL, memory) },
+          0x56 => { self.bit(2, Address::HL, memory) },
+          0x5e => { self.bit(3, Address::HL, memory) },
+          0x66 => { self.bit(4, Address::HL, memory) },
+          0x6e => { self.bit(5, Address::HL, memory) },
+          0x76 => { self.bit(6, Address::HL, memory) },
+          0x7e => { self.bit(7, Address::HL, memory) },
+          0x86 => { self.res_b_hl(0, Address::HL, memory) },
+          0xb6 => { self.res_b_hl(6, Address::HL, memory) },
+          0xbe => { self.res_b_hl(7, Address::HL, memory) },
+          0x8e => { self.res_b_hl(1, Address::HL, memory) },
+          0xC0..=0xff => {
+            let bit = (op & 0x38) >> 3;
+            let r = op & 0x07;
+            match r {
+              0x0 =>  self.set_r(bit, B, memory),
+              0x1 =>  self.set_r(bit, C, memory),
+              0x2 =>  self.set_r(bit, D, memory),
+              0x4 =>  self.set_r(bit, H, memory),
+              0x3 =>  self.set_r(bit, E, memory),
+              0x5 =>  self.set_r(bit, L, memory),
+              0x6 =>  self.set_r(bit, Address::HL, memory),
+              0x7 =>  self.set_r(bit, A, memory),
+              _ => { panic!("unknown opcode") }
             }
-            0x38 => { self.srl_m(B, memory) },
-            0x39 => { self.srl_m(C, memory) },
-            0x3a => { self.srl_m(D, memory) },
-            0x3b => { self.srl_m(E, memory) },
-            0x3c => { self.srl_m(H, memory) },
-            0x3d => { self.srl_m(L, memory) },
-            0x3f => { self.srl_m(A, memory) }
-            0| 1 | 2 | 3 | 4 | 5 | 7 => {
-              let r = op & 0x07;
-              match r {
-                0x0 =>  self.rlca(B, memory),
-                0x1 =>  self.rlca(C, memory),
-                0x2 =>  self.rlca(D, memory),
-                0x4 =>  self.rlca(H, memory),
-                0x3 =>  self.rlca(E, memory),
-                0x5 =>  self.rlca(L, memory),
-                0x7 =>  self.rlca(A, memory),
-                _ => { 0 }
-              }
+          }
+          0x38 => { self.srl_m(B, memory) },
+          0x39 => { self.srl_m(C, memory) },
+          0x3a => { self.srl_m(D, memory) },
+          0x3b => { self.srl_m(E, memory) },
+          0x3c => { self.srl_m(H, memory) },
+          0x3d => { self.srl_m(L, memory) },
+          0x3f => { self.srl_m(A, memory) }
+          0| 1 | 2 | 3 | 4 | 5 | 7 => {
+            let r = op & 0x07;
+            match r {
+              0x0 =>  self.rlca(B, memory),
+              0x1 =>  self.rlca(C, memory),
+              0x2 =>  self.rlca(D, memory),
+              0x4 =>  self.rlca(H, memory),
+              0x3 =>  self.rlca(E, memory),
+              0x5 =>  self.rlca(L, memory),
+              0x7 =>  self.rlca(A, memory),
+              _ => { 0 }
             }
-            0x0E => { self.rrca(Address::HL, memory)}
-            0x06 => { self.rlca(Address::HL, memory)}
-            // 0x10 => { }
-            _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
+          }
+          0x0E => { self.rrca(Address::HL, memory)}
+          0x06 => { self.rlca(Address::HL, memory)}
+          // 0x10 => { }
+          _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
 
-          }
-         },
-        0xcd => { 
-          let addr = self.next_u16(memory);
-          self.call(addr, memory)
-        },
-        0xd3 => { self.out(NextU8, memory) },
-        0xd6 => { 
-            let cyc = self.sub_r(NextU8, memory);
-            self.step(); 
-            cyc
-        },
-        0xf6 => { 
-          let cyc =  self.or_r(NextU8, memory);
-          self.step();
+        }
+       },
+      0xcd => { 
+        let addr = self.next_u16(memory);
+        self.call(addr, memory)
+      },
+      0xd3 => { self.out(NextU8, memory) },
+      0xd6 => { 
+          let cyc = self.sub_r(NextU8, memory);
+          self.step(); 
           cyc
-        },
-        0xdd => {
+      },
+      0xf6 => { 
+        let cyc =  self.or_r(NextU8, memory);
+        self.step();
+        cyc
+      },
+      0xdd => {
+        let op = self.next_u8(memory);
+        let ix = self.r.get_u16(Register16Bit::IX);
+        let ix_h = (ix >> 8) as u8;
+        let ix_l = (ix & 0x00ff) as u8;
+        self.step();
+        match op {
+          0x21 => { self.ld_dd_nn(IX, NextU16, memory) },
+          0x22 => { self.ld_nn_hl(NextU16, IX, memory)},
+          0x23 => {self.inc_ss(IX, memory)},
+          0x2a => { self.ld_dd_nn_content(IX, NextU16, memory)},
+          0x2b => {self.dec_ss(IX, memory)},
+          0x34 => { self.inc_r_d(IX, NextU8 , memory)}
+          0x70 => { self.ld_16_plus_d_r(IX, B, NextU8, memory) }
+          0x71 => { self.ld_16_plus_d_r(IX, C, NextU8, memory) }
+          0x72 => { self.ld_16_plus_d_r(IX, D, NextU8, memory) }
+          0x73 => { self.ld_16_plus_d_r(IX, E, NextU8, memory) }
+          0x74 => { self.ld_16_plus_d_r(IX, H, NextU8, memory) }
+          0x75 => { self.ld_16_plus_d_r(IX, L, NextU8, memory) }
+          0x77 => { self.ld_16_plus_d_r(IX, A, NextU8, memory) }
+          0x84 => { self.add_a_n(ix_h) }
+          0x85 => { self.add_a_n(ix_l) },
+          0x8c => { self.adc_n(ix_h) }
+          0x8d => { self.adc_n(ix_l) }
+          0x8e => { self.adc_ixy_d(IX, NextU8, memory) }
+          0x94 => { self.sub_n(ix_h) }
+          0x95 => { self.sub_n(ix_l) }
+          0x96 => { self.sub_ixy_d(IX, NextU8, memory) }
+          0x9C => { self.sbc_n(ix_h) }
+          0x9D => { self.sbc_n(ix_l) }
+          0x9E => { self.sbc_ixy_d(IX, NextU8, memory) }
+          0xA4 => { self.and_n(ix_h) }
+          0xA5 => { self.and_n(ix_h) }
+          0xA6 => { self.and_ixy_d(IX, NextU8, memory)}
+          0xAC => { self.xor_n(ix_h) }
+          0xAD => { self.xor_n(ix_l) }
+          0xAE => { self.xor_ixy_d(IX, NextU8, memory)}
+          0xB4 => { self.or_n(ix_h) }
+          0xB5 => { self.or_n(ix_l) }
+          0xB6 => { self.or_ixy_d(IX, NextU8, memory)}
+          0xBC => { self.cp_n(ix_h) }
+          0xBD => { self.cp_n(ix_l) }
+          0xBE => { self.cp_ixy_d(IX, NextU8, memory)}
+          0x46 => { self.ld_r_ix_d(IX, NextU8, B, memory) },
+          0x4e => { self.ld_r_ix_d(IX, NextU8, C, memory) },
+          0x56 => { self.ld_r_ix_d(IX, NextU8, D, memory) },
+          0x5e => { self.ld_r_ix_d(IX, NextU8, E, memory) },
+          0x66 => { self.ld_r_ix_d(IX, NextU8, H, memory) },
+          0x6e => { self.ld_r_ix_d(IX, NextU8, L, memory) },
+          0x7e => { self.ld_r_ix_d(IX, NextU8, A, memory) },
+          0x36 => { self.ld_16_plus_d_n(IX, NextU16, memory) },
+          0x86 => { self.add_a_ix_d(IX, NextU8, memory) },
+          0x09 => { self.add_hl_ss(IX, BC, memory) },
+          0x19 => { self.add_hl_ss(IX, DE, memory) },
+          0x29 => { self.add_hl_ss(IX, IX, memory) },
+          0x39 => { self.add_hl_ss(IX, SP, memory) },
+          0xcb => { self.bit_ix_d(7, IX, NextU8, memory)}
+          0xE5 => { self.push_16(IX, memory)},
+          0xE1 => { self.pop(IX, memory)},
+          0xE9 => { self.jmp(IX, memory) },
+          0xf9 => { self.ld_sp_hl(SP, IX, memory) },
+          0x35 => { self.dec_ix_n(IX, NextU8, memory) }
+          _ => {  panic!("unknown opcode 0xdd{}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
+        }
+      },
+      0xeb => {self.ex_ss_ss(DE, HL, memory)},
+      0xed => {
           let op = self.next_u8(memory);
-          let ix = self.r.get_u16(Register16Bit::IX);
-          let ix_h = (ix >> 8) as u8;
-          let ix_l = (ix & 0x00ff) as u8;
           self.step();
           match op {
-            0x21 => { self.ld_dd_nn(IX, NextU16, memory) },
-            0x22 => { self.ld_nn_hl(NextU16, IX, memory)},
-            0x23 => {self.inc_ss(IX, memory)},
-            0x2a => { self.ld_dd_nn_content(IX, NextU16, memory)},
-            0x2b => {self.dec_ss(IX, memory)},
-            0x34 => { self.inc_r_d(IX, NextU8 , memory)}
-            0x70 => { self.ld_16_plus_d_r(IX, B, NextU8, memory) }
-            0x71 => { self.ld_16_plus_d_r(IX, C, NextU8, memory) }
-            0x72 => { self.ld_16_plus_d_r(IX, D, NextU8, memory) }
-            0x73 => { self.ld_16_plus_d_r(IX, E, NextU8, memory) }
-            0x74 => { self.ld_16_plus_d_r(IX, H, NextU8, memory) }
-            0x75 => { self.ld_16_plus_d_r(IX, L, NextU8, memory) }
-            0x77 => { self.ld_16_plus_d_r(IX, A, NextU8, memory) }
-            0x84 => { self.add_a_n(ix_h) }
-            0x85 => { self.add_a_n(ix_l) },
-            0x8c => { self.adc_n(ix_h) }
-            0x8d => { self.adc_n(ix_l) }
-            0x8e => { self.adc_ixy_d(IX, NextU8, memory) }
-            0x94 => { self.sub_n(ix_h) }
-            0x95 => { self.sub_n(ix_l) }
-            0x96 => { self.sub_ixy_d(IX, NextU8, memory) }
-            0x9C => { self.sbc_n(ix_h) }
-            0x9D => { self.sbc_n(ix_l) }
-            0x9E => { self.sbc_ixy_d(IX, NextU8, memory) }
-            0xA4 => { self.and_n(ix_h) }
-            0xA5 => { self.and_n(ix_h) }
-            0xA6 => { self.and_ixy_d(IX, NextU8, memory)}
-            0xAC => { self.xor_n(ix_h) }
-            0xAD => { self.xor_n(ix_l) }
-            0xAE => { self.xor_ixy_d(IX, NextU8, memory)}
-            0xB4 => { self.or_n(ix_h) }
-            0xB5 => { self.or_n(ix_l) }
-            0xB6 => { self.or_ixy_d(IX, NextU8, memory)}
-            0xBC => { self.cp_n(ix_h) }
-            0xBD => { self.cp_n(ix_l) }
-            0xBE => { self.cp_ixy_d(IX, NextU8, memory)}
-            0x46 => { self.ld_r_ix_d(IX, NextU8, B, memory) },
-            0x4e => { self.ld_r_ix_d(IX, NextU8, C, memory) },
-            0x56 => { self.ld_r_ix_d(IX, NextU8, D, memory) },
-            0x5e => { self.ld_r_ix_d(IX, NextU8, E, memory) },
-            0x66 => { self.ld_r_ix_d(IX, NextU8, H, memory) },
-            0x6e => { self.ld_r_ix_d(IX, NextU8, L, memory) },
-            0x7e => { self.ld_r_ix_d(IX, NextU8, A, memory) },
-            0x36 => { self.ld_16_plus_d_n(IX, NextU16, memory) },
-            0x86 => { self.add_a_ix_d(IX, NextU8, memory) },
-            0x09 => { self.add_hl_ss(IX, BC, memory) },
-            0x19 => { self.add_hl_ss(IX, DE, memory) },
-            0x29 => { self.add_hl_ss(IX, IX, memory) },
-            0x39 => { self.add_hl_ss(IX, SP, memory) },
-            0xcb => { self.bit_ix_d(7, IX, NextU8, memory)}
-            0xE5 => { self.push_16(IX, memory)},
-            0xE1 => { self.pop(IX, memory)},
-            0xE9 => { self.jmp(IX, memory) },
-            0xf9 => { self.ld_sp_hl(SP, IX, memory) },
-            0x35 => { self.dec_ix_n(IX, NextU8, memory) }
-            _ => {  panic!("unknown opcode 0xdd{}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
-          }
-        },
-        0xeb => {self.ex_ss_ss(DE, HL, memory)},
-        0xed => {
-            let op = self.next_u8(memory);
-            self.step();
-            match op {
-              0x42 => { self.sbc_hl_ss(BC, memory) },
-              0x52 => { self.sbc_hl_ss(DE, memory) },
-              0x62 => { self.sbc_hl_ss(HL, memory) },
-              0x72 => { self.sbc_hl_ss(SP, memory) },
-              0x43 => { self.ld_nn_dd(BC, NextU16, memory) },
-              0x44 => { self.neg() }
-              0x53 => { self.ld_nn_dd(DE, NextU16, memory) },
-              0x63 => { self.ld_nn_dd(HL, NextU16, memory) },
-              0x73 => { self.ld_nn_dd(SP, NextU16, memory) },
-              0x4b => { self.ld_dd_nn_content(BC, NextU16, memory) },
-              0x5b => { self.ld_dd_nn_content(DE, NextU16, memory) },
-              0x6b => { self.ld_dd_nn_content(HL, NextU16, memory) },
-              0x7b => { self.ld_dd_nn_content(SP, NextU16, memory) },
-              0x47 => { self.ld_r_r(I, A, memory) },
-              0x4a => { self.adc_16(BC, memory) },
-              0x5a => { self.adc_16(DE, memory) },
-              0x6a => { self.adc_16(HL, memory) },
-              0x7a => { self.adc_16(SP, memory) },
-              0x56 => { self.im1() },
-              0x5e => { self.im2() },
-              0xa0 => { self.ldi(HL, DE, BC, memory)}
-              0xa1 => { self.cpi(memory) },
-              0xb0 => { self.ldir(HL, DE, BC, memory)}
-              _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
-            }
-        },
-        0xfd => {
-          let op = self.next_u8(memory);
-          let iy = self.r.get_u16(Register16Bit::IY);
-          let iy_l = (iy & 0x00ff) as u8;
-          let iy_h = (iy >> 8) as u8;
-          self.step();
-          match op {
-            0x22 => { self.ld_nn_hl(NextU16, IY, memory)},
-            0x23 => {self.inc_ss(IY, memory)},
-            0x2a => { self.ld_dd_nn_content(IY, NextU16, memory)},
-            0x2b => {self.dec_ss(IY, memory)},
-            0x09 => { self.add_hl_ss(IY, BC, memory) },
-            0x19 => { self.add_hl_ss(IY, DE, memory) },
-            0x29 => { self.add_hl_ss(IY, IY, memory) },
-            0x39 => { self.add_hl_ss(IY, SP, memory) },
-            0x21 => { self.ld_dd_nn(IY, NextU16, memory) },
-            0x34 => { self.inc_r_d(IY, NextU8 , memory)},
-            0x35 => { self.dec_ix_n(IY, NextU8, memory) }
-            0x36 => { self.ld_16_plus_d_n(IY, NextU16, memory) },
-            0x46 => { self.ld_r_16_d(B, IY, NextU8, memory) },
-            0x4e => { self.ld_r_16_d(C, IY, NextU8, memory) },
-            0x56 => { self.ld_r_16_d(D, IY, NextU8, memory) },
-            0x5e => { self.ld_r_16_d(E, IY, NextU8, memory) },
-            0x66 => { self.ld_r_16_d(H, IY, NextU8, memory) },
-            0x6e => { self.ld_r_16_d(L, IY, NextU8, memory) },
-            0x70 => { self.ld_16_plus_d_r(IY, B, NextU8, memory) },
-            0x71 => { self.ld_16_plus_d_r(IY, C, NextU8, memory) },
-            0x72 => { self.ld_16_plus_d_r(IY, D, NextU8, memory) },
-            0x73 => { self.ld_16_plus_d_r(IY, E, NextU8, memory) },
-            0x74 => { self.ld_16_plus_d_r(IY, H, NextU8, memory) },
-            0x75 => { self.ld_16_plus_d_r(IY, L, NextU8, memory) },
-            0x77 => { self.ld_16_plus_d_r(IY, A, NextU8, memory) }
-            0x7e => { self.ld_r_16_d(A, IY, NextU8, memory) },
-            0x84 => { self.add_a_n(iy_h) }
-            0x85 => { self.add_a_n(iy_l) }
-            0x8c => { self.adc_n(iy_h) }
-            0x8d => { self.adc_n(iy_l) }
-            0x8e => { self.adc_ixy_d(IY, NextU8, memory) }
-            0x94 => { self.sub_n(iy_h) }
-            0x95 => { self.sub_n(iy_l) }
-            0x96 => { self.sub_ixy_d(IY, NextU8, memory) }
-            0x9C => { self.sbc_n(iy_h) }
-            0x9D => { self.sbc_n(iy_l) }
-            0x9E => { self.sbc_ixy_d(IY, NextU8, memory) }
-            0xA4 => { self.and_n(iy_h) }
-            0xA5 => { self.and_n(iy_h) }
-            0xA6 => { self.and_ixy_d(IY, NextU8, memory)}
-            0xAC => { self.xor_n(iy_h) }
-            0xAD => { self.xor_n(iy_l) }
-            0xAE => { self.xor_ixy_d(IY, NextU8, memory)}
-            0xB4 => { self.or_n(iy_h) }
-            0xB5 => { self.or_n(iy_l) }
-            0xB6 => { self.or_ixy_d(IY, NextU8, memory)}
-            0xBC => { self.cp_n(iy_h) }
-            0xBD => { self.cp_n(iy_l) }
-            0xBE => { self.cp_ixy_d(IY, NextU8, memory)}
-            0x86 => { self.add_a_ix_d(IY, NextU8, memory) },
-            0xE5 => { self.push_16(IY, memory)},
-            0xE1 => { self.pop(IY, memory)},
-            0xE9 => { self.jmp(IY, memory) },
-            0xf9 => { self.ld_sp_hl(SP, IY, memory) },
+            0x42 => { self.sbc_hl_ss(BC, memory) },
+            0x52 => { self.sbc_hl_ss(DE, memory) },
+            0x62 => { self.sbc_hl_ss(HL, memory) },
+            0x72 => { self.sbc_hl_ss(SP, memory) },
+            0x43 => { self.ld_nn_dd(BC, NextU16, memory) },
+            0x44 => { self.neg() }
+            0x53 => { self.ld_nn_dd(DE, NextU16, memory) },
+            0x63 => { self.ld_nn_dd(HL, NextU16, memory) },
+            0x73 => { self.ld_nn_dd(SP, NextU16, memory) },
+            0x4b => { self.ld_dd_nn_content(BC, NextU16, memory) },
+            0x5b => { self.ld_dd_nn_content(DE, NextU16, memory) },
+            0x6b => { self.ld_dd_nn_content(HL, NextU16, memory) },
+            0x7b => { self.ld_dd_nn_content(SP, NextU16, memory) },
+            0x47 => { self.ld_r_r(I, A, memory) },
+            0x4a => { self.adc_16(BC, memory) },
+            0x5a => { self.adc_16(DE, memory) },
+            0x6a => { self.adc_16(HL, memory) },
+            0x7a => { self.adc_16(SP, memory) },
+            0x56 => { self.im1() },
+            0x5e => { self.im2() },
+            0xa0 => { self.ldi(HL, DE, BC, memory)}
+            0xa1 => { self.cpi(memory) },
+            0xb0 => { self.ldir(HL, DE, BC, memory)}
             _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
           }
-        },
-        0xd9 => { self.exx() },
-        0xc1 => {self.pop(BC, memory)},
-        0xd1 => {self.pop(DE, memory)},
-        0xe1 => {self.pop(HL, memory)},
-        0xf1 => {self.pop(AF, memory)},
-        0xc2 => { self.jp_cc_nn(Condition::NOTZERO, NextU16, memory) },
-        0xca => { self.jp_cc_nn(Condition::ZERO, NextU16, memory) },
-        0xd2 => { self.jp_cc_nn(Condition::NOTCARRY, NextU16, memory) },
-        0xda => { self.jp_cc_nn(Condition::CARRY, NextU16, memory) },
-        0xe2 => { self.jp_cc_nn(Condition::PARITYODD, NextU16, memory) },
-        0xea => { self.jp_cc_nn(Condition::PARITYEVEN, NextU16, memory) },
-        0xf2 => { self.jp_cc_nn(Condition::POSITIVE, NextU16, memory) },
-        0xfa => { self.jp_cc_nn(Condition::NEGATIVE, NextU16, memory) },
-        0xe9 => { self.jmp(Register16Bit::HL, memory) },
-        0xc4 => { self.call_cc_nn(Condition::NOTZERO, NextU16, memory) },
-        0xcc => { self.call_cc_nn(Condition::ZERO, NextU16, memory) },
-        0xd4 => { self.call_cc_nn(Condition::NOTCARRY, NextU16, memory) },
-        0xdc => { self.call_cc_nn(Condition::CARRY, NextU16, memory) },
-        0xe4 => { self.call_cc_nn(Condition::PARITYODD, NextU16, memory) },
-        0xec => { self.call_cc_nn(Condition::PARITYEVEN, NextU16, memory) },
-        0xf4 => { self.call_cc_nn(Condition::POSITIVE, NextU16, memory) },
-        0xfc => { self.call_cc_nn(Condition::NEGATIVE, NextU16, memory) },
-        0xc5 => { self.push_16(BC, memory) },
-        0xd5 => { self.push_16(DE, memory) },
-        0xe5 => { self.push_16(HL, memory) },
-        0xf5 => { self.push_16(AF, memory) },
-        0xc7 => { self.rst_p(0x00, memory) },
-        0xcf => { self.rst_p(0x08, memory) },
-        0xd7 => { self.rst_p(0x10, memory) },
-        0xdf => { self.rst_p(0x18, memory) },
-        0xe7 => { self.rst_p(0x20, memory) },
-        0xef => { self.rst_p(0x28, memory) },
-        0xf7 => { self.rst_p(0x30, memory) },
-        0xff => { self.rst_p(0x38, memory) },
-        0xf9 => { self.ld_sp_hl(SP, HL, memory) },
-        0xfb => { self.ei() },
-        0xfe => { 
-          let cyc = self.cp(NextU8, memory);
-          self.step();
-          cyc
-        },
-        // CP
-        0xBF => self.cp(A, memory),
-        0xB8 => self.cp(B, memory),
-        0xB9 => self.cp(C, memory),
-        0xBA => self.cp(D, memory),
-        0xBB => self.cp(E, memory),
-        0xBC => self.cp(H, memory),
-        0xBD => self.cp(L, memory),
-        0xBE => self.cp(Address::HL, memory),
-        _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); },
-    }
+      },
+      0xfd => {
+        let op = self.next_u8(memory);
+        let iy = self.r.get_u16(Register16Bit::IY);
+        let iy_l = (iy & 0x00ff) as u8;
+        let iy_h = (iy >> 8) as u8;
+        self.step();
+        match op {
+          0x22 => { self.ld_nn_hl(NextU16, IY, memory)},
+          0x23 => {self.inc_ss(IY, memory)},
+          0x2a => { self.ld_dd_nn_content(IY, NextU16, memory)},
+          0x2b => {self.dec_ss(IY, memory)},
+          0x09 => { self.add_hl_ss(IY, BC, memory) },
+          0x19 => { self.add_hl_ss(IY, DE, memory) },
+          0x29 => { self.add_hl_ss(IY, IY, memory) },
+          0x39 => { self.add_hl_ss(IY, SP, memory) },
+          0x21 => { self.ld_dd_nn(IY, NextU16, memory) },
+          0x34 => { self.inc_r_d(IY, NextU8 , memory)},
+          0x35 => { self.dec_ix_n(IY, NextU8, memory) }
+          0x36 => { self.ld_16_plus_d_n(IY, NextU16, memory) },
+          0x46 => { self.ld_r_16_d(B, IY, NextU8, memory) },
+          0x4e => { self.ld_r_16_d(C, IY, NextU8, memory) },
+          0x56 => { self.ld_r_16_d(D, IY, NextU8, memory) },
+          0x5e => { self.ld_r_16_d(E, IY, NextU8, memory) },
+          0x66 => { self.ld_r_16_d(H, IY, NextU8, memory) },
+          0x6e => { self.ld_r_16_d(L, IY, NextU8, memory) },
+          0x70 => { self.ld_16_plus_d_r(IY, B, NextU8, memory) },
+          0x71 => { self.ld_16_plus_d_r(IY, C, NextU8, memory) },
+          0x72 => { self.ld_16_plus_d_r(IY, D, NextU8, memory) },
+          0x73 => { self.ld_16_plus_d_r(IY, E, NextU8, memory) },
+          0x74 => { self.ld_16_plus_d_r(IY, H, NextU8, memory) },
+          0x75 => { self.ld_16_plus_d_r(IY, L, NextU8, memory) },
+          0x77 => { self.ld_16_plus_d_r(IY, A, NextU8, memory) }
+          0x7e => { self.ld_r_16_d(A, IY, NextU8, memory) },
+          0x84 => { self.add_a_n(iy_h) }
+          0x85 => { self.add_a_n(iy_l) }
+          0x8c => { self.adc_n(iy_h) }
+          0x8d => { self.adc_n(iy_l) }
+          0x8e => { self.adc_ixy_d(IY, NextU8, memory) }
+          0x94 => { self.sub_n(iy_h) }
+          0x95 => { self.sub_n(iy_l) }
+          0x96 => { self.sub_ixy_d(IY, NextU8, memory) }
+          0x9C => { self.sbc_n(iy_h) }
+          0x9D => { self.sbc_n(iy_l) }
+          0x9E => { self.sbc_ixy_d(IY, NextU8, memory) }
+          0xA4 => { self.and_n(iy_h) }
+          0xA5 => { self.and_n(iy_h) }
+          0xA6 => { self.and_ixy_d(IY, NextU8, memory)}
+          0xAC => { self.xor_n(iy_h) }
+          0xAD => { self.xor_n(iy_l) }
+          0xAE => { self.xor_ixy_d(IY, NextU8, memory)}
+          0xB4 => { self.or_n(iy_h) }
+          0xB5 => { self.or_n(iy_l) }
+          0xB6 => { self.or_ixy_d(IY, NextU8, memory)}
+          0xBC => { self.cp_n(iy_h) }
+          0xBD => { self.cp_n(iy_l) }
+          0xBE => { self.cp_ixy_d(IY, NextU8, memory)}
+          0x86 => { self.add_a_ix_d(IY, NextU8, memory) },
+          0xE5 => { self.push_16(IY, memory)},
+          0xE1 => { self.pop(IY, memory)},
+          0xE9 => { self.jmp(IY, memory) },
+          0xf9 => { self.ld_sp_hl(SP, IY, memory) },
+          _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
+        }
+      },
+      0xd9 => { self.exx() },
+      0xc1 => {self.pop(BC, memory)},
+      0xd1 => {self.pop(DE, memory)},
+      0xe1 => {self.pop(HL, memory)},
+      0xf1 => {self.pop(AF, memory)},
+      0xc2 => { self.jp_cc_nn(Condition::NOTZERO, NextU16, memory) },
+      0xca => { self.jp_cc_nn(Condition::ZERO, NextU16, memory) },
+      0xd2 => { self.jp_cc_nn(Condition::NOTCARRY, NextU16, memory) },
+      0xda => { self.jp_cc_nn(Condition::CARRY, NextU16, memory) },
+      0xe2 => { self.jp_cc_nn(Condition::PARITYODD, NextU16, memory) },
+      0xea => { self.jp_cc_nn(Condition::PARITYEVEN, NextU16, memory) },
+      0xf2 => { self.jp_cc_nn(Condition::POSITIVE, NextU16, memory) },
+      0xfa => { self.jp_cc_nn(Condition::NEGATIVE, NextU16, memory) },
+      0xe9 => { self.jmp(Register16Bit::HL, memory) },
+      0xc4 => { self.call_cc_nn(Condition::NOTZERO, NextU16, memory) },
+      0xcc => { self.call_cc_nn(Condition::ZERO, NextU16, memory) },
+      0xd4 => { self.call_cc_nn(Condition::NOTCARRY, NextU16, memory) },
+      0xdc => { self.call_cc_nn(Condition::CARRY, NextU16, memory) },
+      0xe4 => { self.call_cc_nn(Condition::PARITYODD, NextU16, memory) },
+      0xec => { self.call_cc_nn(Condition::PARITYEVEN, NextU16, memory) },
+      0xf4 => { self.call_cc_nn(Condition::POSITIVE, NextU16, memory) },
+      0xfc => { self.call_cc_nn(Condition::NEGATIVE, NextU16, memory) },
+      0xc5 => { self.push_16(BC, memory) },
+      0xd5 => { self.push_16(DE, memory) },
+      0xe5 => { self.push_16(HL, memory) },
+      0xf5 => { self.push_16(AF, memory) },
+      0xc7 => { self.rst_p(0x00, memory) },
+      0xcf => { self.rst_p(0x08, memory) },
+      0xd7 => { self.rst_p(0x10, memory) },
+      0xdf => { self.rst_p(0x18, memory) },
+      0xe7 => { self.rst_p(0x20, memory) },
+      0xef => { self.rst_p(0x28, memory) },
+      0xf7 => { self.rst_p(0x30, memory) },
+      0xff => { self.rst_p(0x38, memory) },
+      0xf9 => { self.ld_sp_hl(SP, HL, memory) },
+      0xfb => { self.ei() },
+      0xfe => { 
+        let cyc = self.cp(NextU8, memory);
+        self.step();
+        cyc
+      },
+      // CP
+      0xBF => self.cp(A, memory),
+      0xB8 => self.cp(B, memory),
+      0xB9 => self.cp(C, memory),
+      0xBA => self.cp(D, memory),
+      0xBB => self.cp(E, memory),
+      0xBC => self.cp(H, memory),
+      0xBD => self.cp(L, memory),
+      0xBE => self.cp(Address::HL, memory),
+      _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); },
+  }
   }
 
   #[inline]

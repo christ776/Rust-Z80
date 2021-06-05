@@ -109,7 +109,6 @@ impl TileDecoder {
       let x_flip = (work_ram[offset] & 0x01) != 0;
       let y_flip = (work_ram[offset] & 0x02) != 0;
       byte_offset *= 64;
-      // let byte_offset = 32 * 64 as usize;
       let offset_x: usize = self.sprite_coordinates[0 + offset] as usize;
       let offset_y = self.sprite_coordinates[1 + offset] as usize + 16 + 8;
 
