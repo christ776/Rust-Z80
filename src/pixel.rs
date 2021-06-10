@@ -21,9 +21,9 @@ impl Pixel {
     pub fn to_rgba(& self) -> u32 {
         match self.color {
             0 => 0x00000000,
-            1 => 0xFF0000FF,
-            2 => 0xFFFF00FF,
-            3 => 0x00FF00FF,
+            1 => 0xFF000000,
+            2 => 0xFFFF0000,
+            3 => 0x00FF0000,
             _ => 0
         }
     }

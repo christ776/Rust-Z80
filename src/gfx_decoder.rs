@@ -8,7 +8,8 @@ pub struct TileDecoder {
   height: usize,
   columns: usize,
   rows: usize,
-  sprite_coordinates: Vec<u8>
+  pub color_tables: Vec<u32>,
+  pub palette_rom: Vec<u8>
 }
 
 impl TileDecoder {
@@ -17,7 +18,8 @@ impl TileDecoder {
     Self {
       width,
       height,
-      sprite_coordinates: vec![0; 16], // Sprite coordinates are stored in 16 bytes
+      color_tables: vec![0],
+      palette_rom: vec![0],
       columns: width / 8,
       rows: height / 8 
         - 2 // Total rows is 36 minus 2 lower rows, renderer on their own
@@ -94,23 +96,31 @@ impl TileDecoder {
     }
   }
 
-  pub fn update_sprite_coordinates(&mut self, address: usize, data: u8) {
-    self.sprite_coordinates[address] = data
-  }
-
-  pub fn decode_sprite(&self, work_ram: &[u8], sprite_rom: &[u8], pixel_buffer: &mut Vec<u32>) {
+  pub fn decode_sprite(&self, sprite_coordinates:&[u8] , work_ram: &[u8],
+     sprite_rom: &[u8], pixel_buffer: &mut Vec<u32>) {
     for sprite_number in 0..8 {
-      let offset = sprite_number * 2;
+      let sprite_offset = sprite_number * 2;
       let columns  = 8;
       // The 4096 byte Sprite ROM (pacman.5f) stores 16x16 pixel sprites.
       // Each pixel uses 2 bits, resulting in each sprite using 64 bytes of ROM.
       // 4096/64 = 64 sprites stored in ROM
-      let mut byte_offset: usize = (work_ram[offset] >> 2).into();
-      let x_flip = (work_ram[offset] & 0x01) != 0;
-      let y_flip = (work_ram[offset] & 0x02) != 0;
+      let mut byte_offset: usize = (work_ram[sprite_offset] >> 2).into();
+      let x_flip = (work_ram[sprite_offset] & 0x01) != 0;
+      let y_flip = (work_ram[sprite_offset] & 0x02) != 0;
+
+      let palette = work_ram[1 + sprite_offset] & 0x3f;
+      // let palette = 1;
+      //Each palette in the 256 byte palette ROM (82s126.4a) consists of 4 bytes,
+      // so this ROM stores 64 palettes.
+      let color_1 = self.palette_rom[(palette * 4 )  as usize];
+      let color_2 = self.palette_rom[(palette * 4 + 1) as usize];
+      let color_3 = self.palette_rom[(palette * 4 + 2) as usize];
+      let color_4 = self.palette_rom[(palette * 4 + 3) as usize];
+
       byte_offset *= 64;
-      let offset_x: usize = self.sprite_coordinates[0 + offset] as usize;
-      let offset_y = self.sprite_coordinates[1 + offset] as usize + 16 + 8;
+      // let byte_offset = 32 * 64 as usize;
+      let offset_x: usize = sprite_coordinates[0 + sprite_offset] as usize;
+      let offset_y = sprite_coordinates[1 + sprite_offset] as usize + 16 + 8;
 
       // The starting location for each 8 byte "group" is:
       // 5  1
@@ -119,38 +129,37 @@ impl TileDecoder {
       // 4  0
 
       let a = 8;
-      let b = 16;
       self.draw_sprite_4_by_8(columns, sprite_rom, 
         byte_offset, 12, offset_y, offset_x + a,
-            x_flip, y_flip, pixel_buffer); 
+            x_flip, y_flip, pixel_buffer, &[color_1, color_2, color_3, color_4]); 
 
       self.draw_sprite_4_by_8(columns, sprite_rom, 
           byte_offset + 8, 0, offset_y, offset_x + a,
-      x_flip, y_flip, pixel_buffer); 
+      x_flip, y_flip, pixel_buffer, &[color_1, color_2, color_3, color_4]); 
 
       self.draw_sprite_4_by_8(columns, sprite_rom, 
         byte_offset + 16, 4, offset_y , offset_x + a,  
-            x_flip, y_flip, pixel_buffer); 
+            x_flip, y_flip, pixel_buffer, &[color_1, color_2, color_3, color_4]); 
 
       self.draw_sprite_4_by_8(columns, sprite_rom, 
         byte_offset + 24, 8, offset_y , offset_x + a, 
-              x_flip, y_flip, pixel_buffer); 
+              x_flip, y_flip, pixel_buffer, &[color_1, color_2, color_3, color_4]); 
 
       self.draw_sprite_4_by_8(columns, sprite_rom, 
         byte_offset + 32, 12, offset_y, offset_x,
-            x_flip, y_flip, pixel_buffer); 
+            x_flip, y_flip, pixel_buffer, &[color_1, color_2, color_3, color_4]); 
 
       self.draw_sprite_4_by_8(columns, sprite_rom, 
           byte_offset + 40, 0, offset_y, offset_x,
-      x_flip, y_flip, pixel_buffer); 
+      x_flip, y_flip, pixel_buffer, &[color_1, color_2, color_3, color_4]); 
 
       self.draw_sprite_4_by_8(columns, sprite_rom, 
         byte_offset + 48, 4, offset_y , offset_x, 
-        x_flip, y_flip, pixel_buffer);  
+        x_flip, y_flip, pixel_buffer, &[color_1, color_2, color_3, color_4]);  
       
       self.draw_sprite_4_by_8(columns, sprite_rom, 
         byte_offset + 56, 8, offset_y , offset_x,
-        x_flip, y_flip, pixel_buffer); 
+        x_flip, y_flip, pixel_buffer, &[color_1, color_2, color_3, color_4]); 
     }
   }
 
@@ -159,7 +168,7 @@ impl TileDecoder {
       byte_offset: usize, vertical_offset: usize, 
       offset_y: usize, offset_x: usize,
       x_flip: bool, y_flip: bool,
-      pixel_buffer: &mut Vec<u32>) 
+      pixel_buffer: &mut Vec<u32>, colors: &[u8]) 
     {
 
     let column_range = if x_flip { 8..0 } else { 0..8 };
@@ -173,27 +182,40 @@ impl TileDecoder {
       let high_nibble = (sprite_rom[(columns - 1 - column) + byte_offset] >> 4) & 0x0F;
     
       let mut pixels =  [ 
-        Pixel::new((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3),
-        Pixel::new((low_nibble & 0x04) >> 2, (high_nibble & 0x04) >> 2),
-        Pixel::new((low_nibble & 0x02) >> 1, (high_nibble & 0x02) >> 1),
-        Pixel::new(low_nibble & 0x01, high_nibble & 0x01),
+       TileDecoder::to_pixel((low_nibble & 0x08) >> 3, (high_nibble & 0x08) >> 3),
+       TileDecoder::to_pixel((low_nibble & 0x04) >> 2, (high_nibble & 0x04) >> 2),
+       TileDecoder::to_pixel((low_nibble & 0x02) >> 1, (high_nibble & 0x02) >> 1),
+       TileDecoder::to_pixel(low_nibble & 0x01, high_nibble & 0x01),
       ];
       if y_flip {
         pixels.reverse();
       }
 
       for (i, pixel) in pixels.iter().enumerate() {
-        let raw_data = pixel.to_rgba();
-        let pos = (i + vertical_offset)  
-                * self.width // 224 pixles or 28 columns 
-                + column  // column number
-                + offset_y * self.width // row offset
-                // * self.width * 8 
-                + offset_x;
-        pixel_buffer[pos] = raw_data;
+        let color_data = self.to_rgba(*pixel, colors);
+        if color_data != 0 {
+          let pos = (i + vertical_offset)  
+          * self.width // 224 pixles or 28 columns 
+          + column  // column number
+          + offset_y * self.width // row offset
+          + offset_x;
+
+          pixel_buffer[pos] = color_data;
+        }
       }
     }
   }
+
+  pub(crate) fn to_pixel(low_nibble: u8, high_nibble: u8) -> u8 {
+    low_nibble << 1 | high_nibble
+  }
+
+  pub fn to_rgba(&self, color: u8, colors: &[u8]) -> u32 {
+    let x = colors[color as usize];
+    let mapped_color = self.color_tables[x as usize];
+    mapped_color
+  }
+
 
   fn tile_to_pixels(&self, tile: &[u8], offset_y: usize, offset_x: usize, pixel_buffer: &mut std::vec::Vec<u32>) {      
        // Upper Eight columns
@@ -202,7 +224,7 @@ impl TileDecoder {
       self.decode_columns(tile, offset_y, offset_x, pixel_buffer, 8, 4, 0);
   }
 
-fn decode_columns(&self, tile: &[u8], offset_y: usize, offset_x: usize,
+  fn decode_columns(&self, tile: &[u8], offset_y: usize, offset_x: usize,
      pixel_buffer: &mut Vec<u32>, columns: usize, vertical_offset: usize, byte_offset: usize) {
     for column in (0..columns).rev() {
         // We need four bytes per 4 pixels , because each pixel in the pixel buffer has a 8-bit color depth
@@ -229,5 +251,5 @@ fn decode_columns(&self, tile: &[u8], offset_y: usize, offset_x: usize,
             pixel_buffer[pos] = raw_data;
         }
       }
-}
+  }
 }

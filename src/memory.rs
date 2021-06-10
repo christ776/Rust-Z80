@@ -1,7 +1,3 @@
-
-use crate::{HEIGHT, WIDTH};
-use crate::gfx_decoder::TileDecoder;
-
 pub trait Memory {
   fn w16(&mut self, addr:u16, data: u16);
   fn w8(&mut self, address:u16, data:u8);
@@ -12,13 +8,13 @@ pub trait Memory {
   fn new_64k() -> Self where Self: Sized;
 }
 
-
 pub struct BoardMemory {
   pub work_ram: Vec<u8>,
-  // pub pixel_buffer: Vec<u32>,
   pub tile_rom: Vec<u8>, 
   pub sprite_rom: Vec<u8>, 
-  pub decoder: TileDecoder,
+  pub memory_mapped_area: Vec<u8>,
+  pub in0: u8,
+  pub in1: u8,
 }
 
 pub struct PlainMemory {
@@ -76,22 +72,11 @@ impl Memory for PlainMemory {
 
 impl Memory for BoardMemory {
 
-    fn new() -> BoardMemory {
-      BoardMemory{
-        work_ram: Vec::new(),
-        tile_rom: Vec::new(),
-        sprite_rom: Vec::new(),
-        decoder: TileDecoder::new(WIDTH, HEIGHT),
-      }
-    }
-
-    fn new_64k() -> BoardMemory {
-      BoardMemory { 
-        work_ram: vec![0; 65536],
-        tile_rom: vec![0],
-        sprite_rom: vec![0],
-        decoder: TileDecoder::new(WIDTH, HEIGHT)
-      }
+    fn w16(&mut self, addr:u16, data: u16) {
+      let l = (data & 0x00FF) as u8;
+      let h = (data >> 8) as u8;
+      self.w8(addr, l);
+      self.w8(addr + 1, h);
     }
 
     fn w8(&mut self, address:u16, data:u8) {
@@ -133,7 +118,8 @@ impl Memory for BoardMemory {
         }
         0x5060..=0x506f => {
           //Write Sprite coordinates
-          self.decoder.update_sprite_coordinates((address - 0x5060).into(), data);
+          // self.decoder.update_sprite_coordinates((address - 0x5060).into(), data);
+          self.memory_mapped_area[(address - 0x5060) as usize] = data;
         }
         // },
         // 0x5040..=0x505f => {    
@@ -160,13 +146,6 @@ impl Memory for BoardMemory {
       }
     }
 
-    fn w16(&mut self, addr:u16, data: u16) {
-      let l = (data & 0x00FF) as u8;
-      let h = (data >> 8) as u8;
-      self.w8(addr, l);
-      self.w8(addr + 1, h);
-    }
-
     fn r16(&self, addr: u16) -> u16 {
         let l:u16 = self.work_ram[addr as usize].into();
         let h: u16 = self.work_ram[(addr +1) as usize].into();
@@ -175,11 +154,11 @@ impl Memory for BoardMemory {
 
     fn r8(&self, addr: u16) -> u8 {
       match addr {
-        0x5000 => { // Read IN0: Joystick and coin slot
-          0b1111_1111
+        0x5000..=0x503f => { // Read IN0: Joystick and coin slot
+          self.in0
         },
-        0x5040 => {
-          0b1111_1111 // IN1
+        0x5040..=0x507f => {
+          self.in1 // IN1: Read IN1: Joystick and coin slot
         },
         0x5080..=0x50bf => {
           0xc9 //Dip-Switch byte
@@ -193,4 +172,26 @@ impl Memory for BoardMemory {
         _ => self.work_ram[addr as usize]
       }
   }
+
+    fn new() -> BoardMemory {
+      BoardMemory{
+        work_ram: Vec::new(),
+        tile_rom: Vec::new(),
+        sprite_rom: Vec::new(),
+        memory_mapped_area: vec![0; 16],
+        in0: 0b1111_1111,
+        in1: 0b1111_1111,
+      }
+    }
+
+    fn new_64k() -> BoardMemory {
+      BoardMemory { 
+        work_ram: vec![0; 65536],
+        tile_rom: vec![0],
+        sprite_rom: vec![0],
+        memory_mapped_area: vec![0; 16],
+        in0: 0b1111_1111,
+        in1: 0b1111_1111,
+      }
+    }
 }

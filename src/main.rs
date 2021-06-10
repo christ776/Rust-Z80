@@ -19,9 +19,12 @@ mod pixel;
 mod gui;
 mod registers;
 
+use core::time;
 use std::time::Duration;
 use std::time::Instant;
 
+use ::Z80::gfx_decoder::TileDecoder;
+use gilrs::{Button, Gilrs};
 use gui::Gui;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
@@ -29,6 +32,14 @@ use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit_input_helper::WinitInputHelper;
 use ::Z80::{memory::BoardMemory, memory::Memory, z80::Z80};
+
+pub enum Direction {
+    Up,
+    Down,
+    Right,
+    Left,
+    Still
+}
 
 
 fn main () -> Result<(), Error> {
@@ -39,12 +50,24 @@ fn main () -> Result<(), Error> {
     let mut pixels = Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture)?;
     let mut start_time = Instant::now();
     let mut last_frame = Instant::now();
-    let mut world = Machine::new();
-    world.load_roms();
+    let mut emulator = Machine::new();
+    emulator.load_roms();
     let mut input = WinitInputHelper::new();
+
+    // Gamepads
+
+    let mut gilrs = Gilrs::new().unwrap();
+    // Iterate over all connected gamepads
+    for (_id, gamepad) in gilrs.gamepads() {
+        println!("{} is {:?}", gamepad.name(), gamepad.power_info());
+    }
+    let mut gamepad = None;
+    let ten_millis = time::Duration::from_millis(10);
+
+
     // Set up Dear ImGui
     let mut gui = Gui::new(&window, &pixels);
-    let video_ram = world.memory.work_ram.get(0x4000..0x4400);
+    let video_ram = emulator.memory.work_ram.get(0x4000..0x4400);
     match video_ram {
         Some(video_ram) => gui.set_memory_editor_mem(&video_ram),
         None => print!("Error?")
@@ -56,26 +79,40 @@ fn main () -> Result<(), Error> {
         if let Event::RedrawEventsCleared = event {
             let now = Instant::now();
             gui.update_delta_time(now - last_frame);
-            gui.update_cpu_state(&world.cpu);
+            gui.update_cpu_state(&emulator.cpu);
             // match world.memory.work_ram.get(0x4000..0x4400) {
             //     Some(video_ram) => gui.set_memory_editor_mem(&video_ram),
             //     None => print!("Error?")
             // }
 
             // Update internal state and request a redraw
-            let now = Instant::now();
-            let dt = now.duration_since(start_time);
-            start_time = now;
+            // let now = Instant::now();
+            // let dt = now.duration_since(start_time);
+            // start_time = now;
     
             // Update the game logic and request redraw
-            world.update(&dt);
-            window.request_redraw();
+            // emulator.update(&dt);
+            // window.request_redraw();
 
             last_frame = now;
         }
 
+        // Pump the gilrs event loop and find an active gamepad
+        // Examine new events
+        while let Some(gilrs::Event { id, event: _, time: _ }) = gilrs.next_event() {
+            // println!("{:?} New event from {}: {:?}", time, id, event);
+            gamepad = Some(id);
+        }
+
+        // You can also use cached gamepad state
+        if let Some(gamepad) = gamepad.map(|id| gilrs.gamepad(id)) {
+            if gamepad.is_pressed(Button::South) {
+                println!("Button South is pressed (XBox - A, PS - X)");
+            }
+        }
+
         if let Event::RedrawRequested(_) = event {
-            world.draw(pixels.get_frame());
+            emulator.draw(pixels.get_frame());
 
              // Prepare Dear ImGui
              gui.prepare(&window).expect("gui.prepare() failed");
@@ -109,10 +146,53 @@ fn main () -> Result<(), Error> {
                 return;
             }
 
+            // Keyboard controls
+            let mut left = input.key_held(VirtualKeyCode::Left);
+            let mut right = input.key_held(VirtualKeyCode::Right);
+            let up = input.key_held(VirtualKeyCode::Up);
+            let down = input.key_held(VirtualKeyCode::Down);
+            // let mut fire = input.key_pressed(VirtualKeyCode::Space);
+
+            let insert_coin = input.key_held(VirtualKeyCode::Key5);
+            let player1_start = input.key_held(VirtualKeyCode::Key1);
+
+            // Gamepad controls
+            if let Some(id) = gamepad {
+                let gamepad = gilrs.gamepad(id);
+
+                left = left || gamepad.is_pressed(Button::DPadLeft);
+                right = right || gamepad.is_pressed(Button::DPadRight);
+                // fire = fire
+                //     || gamepad.button_data(Button::South).map_or(false, |button| {
+                //         button.is_pressed() && button.counter() == gilrs.counter()
+                //     });
+            }
+
+            let direction = if left {
+                Direction::Left
+            } else if right {
+                Direction::Right
+            } else if up {
+                Direction::Up
+            } else if down {
+                Direction::Down
+            } else {
+                Direction::Still
+            };
+
             // Resize the window
             if let Some(size) = input.window_resized() {
                 pixels.resize(size.width, size.height);
             }
+
+            // Update internal state and request a redraw
+            let now = Instant::now();
+            let dt = now.duration_since(start_time);
+            start_time = now;
+
+            // Update the game logic and request redraw
+            emulator.update(&dt, direction, insert_coin, player1_start);
+            window.request_redraw();
         }
     });
 }
@@ -122,7 +202,8 @@ struct Machine {
     memory: BoardMemory,
     dt: Duration,
     pixel_buffer: Vec<u32>,
-    cycles_per_frame: usize
+    cycles_per_frame: usize,
+    gfx_decoder:TileDecoder,
 }
 
 impl Machine {    
@@ -133,7 +214,8 @@ impl Machine {
             dt: Duration::default(),
             cpu: Z80::new(),
             pixel_buffer: vec![0; 65536],
-            cycles_per_frame: CPU_CLOCK / 60
+            cycles_per_frame: CPU_CLOCK / 60,
+            gfx_decoder: TileDecoder::new(WIDTH, HEIGHT),
         }
     }
 
@@ -147,6 +229,32 @@ impl Machine {
         Machine::load_rom_mut(&String::from("./pacman/pacman.5e"), &mut self.memory.tile_rom);
         //Sprite ROM
         Machine::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut self.memory.sprite_rom);
+
+        //Color Rom
+        let mut color_rom: Vec<u8> = vec![0,32];
+        Machine::load_rom_mut(&String::from("./pacman/82s123.7f"), &mut color_rom);
+        self.gfx_decoder.color_tables = color_rom.iter().map(|entry| {
+            
+            let red = 
+                if (entry & 0x1) != 0 { 0x97 } else { 0 } +
+                if (entry & 0x2) != 0 { 0x47 } else { 0 } +
+                if (entry & 0x4) != 0 { 0x21 } else { 0 };
+
+            let green = 
+                if (entry & 0x8) != 0 { 0x97 } else { 0 } +
+                if (entry & 0x10) != 0 { 0x47 } else { 0 } +
+                if (entry & 0x20) != 0 { 0x21 } else { 0 };
+
+            let blue = 
+                if (entry & 0x40) != 0 { 0x51 } else { 0 } +
+                if (entry & 0x80) != 0 { 0xAE } else { 0 };
+
+            let result = [ red, green, blue, 0xff ];
+            as_u32_be(&result)
+        }).collect();
+         
+        //Palette Rom
+        Machine::load_rom_mut(&String::from("./pacman/82s126.4a"), &mut self.gfx_decoder.palette_rom);
 
         // Working RAM ... it's a bit of a hack for now
         // &mem.work_ram.append(&mut video_ram);
@@ -170,7 +278,7 @@ impl Machine {
     ///
     /// * `dt`: The time delta since last update.
     /// * `controls`: The player inputs.
-    pub fn update(&mut self, dt: &Duration) {
+    pub fn update(&mut self, dt: &Duration, direction: Direction, inserted_coin: bool, player1_start: bool) {
         let one_frame = Duration::new(0, 16_666_667);
         // Advance the timer by the delta time
         self.dt += *dt;
@@ -180,12 +288,41 @@ impl Machine {
             while current_cycles <= self.cycles_per_frame {
                 current_cycles += self.cpu.exec(&mut self.memory) as usize;
             }
+
+            // Update Inputs
+            if inserted_coin {
+                println!("Inserted Coin!!")
+            }
+
+            let coin = if inserted_coin { 0x20 | self.memory.in0 } else { 0xDF & self.memory.in0 };
+            let mut d: u8 = 0xff;
+            match direction {
+                Direction::Up => {
+                    d = 0b1111_1110;
+                }
+                Direction::Down => {
+                    d = 0b1111_0111;
+                }
+                Direction::Left => {
+                    d = 0b1111_1101;
+                }
+                Direction::Right => {
+                    d = 0b1111_1011;
+                },
+                _ => {}
+            }
+
+            self.memory.in0 = coin & d; 
+            self.memory.in1 = if player1_start { 0xDF & self.memory.in1 } else { self.memory.in1 };
+
+            // Update Gfx
             let sprite_rom = &self.memory.sprite_rom;
             let work_ram = &self.memory.work_ram;
             let tile_rom = &self.memory.tile_rom;
-            self.memory.decoder.decode_tile(&work_ram[0x4000..0x4400], 
+            self.gfx_decoder.decode_tile(&work_ram[0x4000..0x4400], 
                 &tile_rom, &mut self.pixel_buffer);
-            self.memory.decoder.decode_sprite(&work_ram[0x4ff0..0x4FFF],
+            self.gfx_decoder.decode_sprite(&self.memory.memory_mapped_area,
+                 &work_ram[0x4ff0..=0x4FFF],
                  &&sprite_rom, &mut self.pixel_buffer);
             self.cpu.vblank();
             self.dt -= one_frame;
@@ -219,6 +356,13 @@ impl Machine {
             }
         }
        
+}
+
+fn as_u32_be(array: &[u8; 4]) -> u32 {
+    ((array[0] as u32) << 24) +
+    ((array[1] as u32) << 16) +
+    ((array[2] as u32) <<  8) +
+    ((array[3] as u32) <<  0)
 }
 
 impl Default for Machine {
