@@ -1,4 +1,4 @@
-use std::{mem, u128};
+
 
 /// a self instruction is built from 3 bit groups,
 /// the topmost two bits split the instruction space into 4 broad instruction groups,
@@ -23,7 +23,7 @@ use std::{mem, u128};
 /// 
 pub use crate:: memory::Memory;
 
-use crate::{memory, registers::{
+use crate::{registers::{
   Registers, Register8Bit, Register16Bit, Flags,
 }};
 use crate::registers::Register8Bit::{
@@ -797,20 +797,19 @@ impl Z80 {
 
   #[inline]
   fn daa(&mut self) -> u8 {
-    let mut a_l = self.r.a & 0x0f;
-    let mut a_h = self.r.a & 0xf0;
+    let a_l = self.r.a & 0x0f;
+    let a_h = self.r.a >> 4;
     let mut half_carry = false;
     if a_l > 9 || self.r.f.contains(Flags::HALFCARRY) {
-      a_l= a_l + 0x06;
+      self.r.a += 0x06;
       half_carry = true;
     }
     let mut carry = false;
     if a_h > 9 || self.r.f.contains(Flags::CARRY) {
-      a_h = a_h.wrapping_add(0x60);
+      self.r.a = self.r.a.wrapping_add(0x60);
       carry = true;
     }
 
-    self.r.a = a_h | a_l;
     self.r.f = 
         Flags::CARRY.check(carry) |
         Flags::HALFCARRY.check(half_carry)  |
@@ -1622,9 +1621,9 @@ impl Z80 {
                  Flags::SIGN.check(result & 0x80 != 0) |
                  Flags::HALFCARRY.check(half_carry) |
                  Flags::PARITY.check(result > 0x80) |
-                 Flags::CARRY.check(carry) |
-                 Flags::X.check(self.get_bit_at(result as usize, 3)) |
-                 Flags::Y.check(self.get_bit_at(result as usize, 5));
+                 Flags::CARRY.check(carry);
+                //  Flags::X.check(self.get_bit_at(result as usize, 3)) |
+                //  Flags::Y.check(self.get_bit_at(result as usize, 5));
 
       self.r.a = result;
       self.step();

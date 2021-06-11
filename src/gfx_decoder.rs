@@ -57,7 +57,7 @@ impl TileDecoder {
             Some(tile) => self.tile_to_pixels(tile, row, column, pixel_buffer),
             None => print!("Error?")
           }
-          if tile_offset == 0x1d {
+          if tile_offset == 0x1e {
             tile_offset = 0x22;
           } else {
             tile_offset += 1; 
@@ -75,7 +75,7 @@ impl TileDecoder {
             Some(tile) => self.tile_to_pixels(tile, row, column, pixel_buffer),
             None => print!("Error?")
           }
-          if tile_offset == 0x03dd {
+          if tile_offset == 0x03de {
             tile_offset = 0x03e2;
           } else {
             tile_offset += 1; 

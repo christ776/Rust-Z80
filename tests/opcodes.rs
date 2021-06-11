@@ -1528,4 +1528,49 @@ use Z80::z80::Z80;
         assert_eq!(0xA0, cpu.r.a);      
     }
 
+    #[test]
+    fn test_daa() {
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        let prog = [
+            0x3E, 0x15,     // LD A,0x15
+            0x06, 0x27,     // LD B,0x27
+            0x80,           // ADD A,B
+            0x27,           // DAA
+            0x90,           // SUB B
+            0x27,           // DAA
+            0x3E, 0x90,     // LD A,0x90
+            0x06, 0x15,     // LD B,0x15
+            0x80,           // ADD A,B
+            0x27,           // DAA
+            0x90,           // SUB B
+            0x27,           // DAA
+        ];
+        mem.write(0x0000, &prog);
+        cpu.exec(&mut mem);
+        assert_eq!(0x15, cpu.r.a);
+        cpu.exec(&mut mem);
+        assert_eq!(0x27, cpu.r.b);
+        cpu.exec(&mut mem);
+        assert_eq!(0x3C, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0x42, cpu.r.a); assert!(cpu.r.f.contains(Flags::HALFCARRY | Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x1B, cpu.r.a); assert!(cpu.r.f.contains(Flags::HALFCARRY | Flags::NEGATIVE));
+        cpu.exec(&mut mem);
+        assert_eq!(0x15, cpu.r.a); assert!(cpu.r.f.contains(Flags::NEGATIVE));
+        cpu.exec(&mut mem);
+        assert_eq!(0x90, cpu.r.a); assert!(cpu.r.f.contains(Flags::NEGATIVE));
+        cpu.exec(&mut mem);
+        assert_eq!(0x15, cpu.r.b); assert!(cpu.r.f.contains(Flags::NEGATIVE));
+        cpu.exec(&mut mem);
+        assert_eq!(0xA5, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
+        cpu.exec(&mut mem);
+        assert_eq!(0x05, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY | Flags::CARRY));
+        cpu.exec(&mut mem);
+        assert_eq!(0xF0, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN | Flags::NEGATIVE | Flags::CARRY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x90, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN | Flags::NEGATIVE | Flags::CARRY | Flags:: PARITY));
+    }
+
 }
