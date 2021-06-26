@@ -3,7 +3,7 @@ mod zex {
     use Z80::z80::Z80;
     use ::Z80::memory::PlainMemory;
     use ::Z80::memory::Memory;
-    use ::Z80::registers::{ Register16Bit };
+    use ::Z80::registers::Register16Bit;
 
     static ZEXDOC: &'static [u8] = include_bytes!("resources/zexdoc.com");
     // static ZEXALL: &'static [u8] = include_bytes!("resources/zexall.com");

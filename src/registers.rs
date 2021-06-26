@@ -45,6 +45,13 @@ pub enum Register8Bit {
     H = 4,
     I = 9,
     L = 5,
+    IXH = 10,
+    /// Low byte of IX
+    IXL = 11,
+    /// High byte of IY
+    IYH = 12,
+    /// Low byte of IY
+    IYL = 13,
 }
 
 impl TryFrom<u8> for Register8Bit {

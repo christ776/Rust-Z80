@@ -187,9 +187,9 @@ impl Memory for BoardMemory {
     fn new_64k() -> BoardMemory {
       BoardMemory { 
         work_ram: vec![0; 65536],
-        tile_rom: vec![0],
-        sprite_rom: vec![0],
-        memory_mapped_area: vec![0; 16],
+        tile_rom: vec![],
+        sprite_rom: vec![],
+        memory_mapped_area: vec![],
         in0: 0b1111_1111,
         in1: 0b1111_1111,
       }

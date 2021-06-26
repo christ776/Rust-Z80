@@ -82,6 +82,25 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "Debug integration test 'Palette'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--test=palette",
+          "--package=Z80"
+        ],
+        "filter": {
+          "name": "palette",
+          "kind": "test"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Debug integration test 'ex 8080'",
       "cargo": {
         "args": [

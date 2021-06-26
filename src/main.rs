@@ -15,16 +15,16 @@ pub const WIDTH: usize = 224;
 
 mod memory;
 mod gfx_decoder;
-mod pixel;
 mod gui;
 mod registers;
 mod pacman;
+mod utils;
 
 use std::env;
 use std::time::Duration;
 use std::time::Instant;
 
-use ::Z80::gfx_decoder::TileDecoder;
+use gfx_decoder::TileDecoder;
 use gilrs::{Button, Gilrs};
 use gui::Gui;
 use pixels::{Error, Pixels, SurfaceTexture};
@@ -32,7 +32,7 @@ use winit::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit_input_helper::WinitInputHelper;
-use ::Z80::{memory::BoardMemory, memory::Memory, z80::Z80};
+use ::Z80::{memory::BoardMemory, z80::Z80};
 
 pub enum Direction {
     Up,
@@ -48,6 +48,15 @@ fn main () -> Result<(), Error> {
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
         println!("Game to load: {}", args[1]);
+        let mut emulator = Machine::new();
+        let game_name = &args[1];
+        match game_name.as_str() {
+            "pacman" => {
+                emulator.load_roms_pacman();
+            },
+            "numcrash" => emulator.load_roms_numcrash(),
+            _ => {}
+        }
     }
 
     let event_loop = EventLoop::new();
@@ -58,7 +67,7 @@ fn main () -> Result<(), Error> {
     let mut start_time = Instant::now();
     let mut last_frame = Instant::now();
     let mut emulator = Machine::new();
-    emulator.load_roms();
+    emulator.load_roms_pacman();
     let mut input = WinitInputHelper::new();
 
     // Gamepads
@@ -72,7 +81,7 @@ fn main () -> Result<(), Error> {
 
     // Set up Dear ImGui
     let mut gui = Gui::new(&window, &pixels);
-    let video_ram = emulator.memory.work_ram.get(0x4000..0x4400);
+    // let video_ram = emulator.memory.work_ram.get(0x4000..0x4400);
     // match video_ram {
     //     Some(video_ram) => gui.set_memory_editor_mem(&video_ram),
     //     None => print!("Error?")
@@ -187,7 +196,7 @@ fn main () -> Result<(), Error> {
 
             // Resize the window
             if let Some(size) = input.window_resized() {
-                pixels.resize(size.width, size.height);
+                pixels.resize_surface(size.width, size.height);
             }
 
             // Update internal state and request a redraw
@@ -204,7 +213,8 @@ fn main () -> Result<(), Error> {
 
 pub trait Emulator {
     fn new() -> Self;
-    fn load_roms(&mut self);
+    fn load_roms_pacman(&mut self);
+    fn load_roms_numcrash(&mut self);
     fn draw(&mut self, frame: &mut [u8]);
     fn update(&mut self, 
         dt: &Duration, 

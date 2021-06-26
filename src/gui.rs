@@ -1,5 +1,4 @@
 use ::Z80::{registers::Register16Bit, z80::Z80};
-use imgui_memory_editor::MemoryEditor;
 use std::{time::Duration, u16};
 use imgui::*;
 use pixels::{wgpu, PixelsContext};
@@ -80,7 +79,7 @@ impl Gui {
             sp: 0,
             ix: 0,
             iy: 0,
-            video_memory_editor: vec![0; 1024]
+            video_memory_editor: vec![]
         }
     }
 
@@ -113,16 +112,6 @@ impl Gui {
             self.platform.prepare_render(&ui, window);
         }
 
-        // Let's try a Memory Editor!
-        // Can also use a &mut [u8] if you want to use the editor to modify the slice
-        // let mut memory_editor = MemoryEditor::<&[u8]>::new()
-        // .draw_window(im_str!("Video Memory")) // Can omit if you don't want to create a window
-        // .read_only(false);
-
-        // if memory_editor.open() { // open() can be omitted if draw_window was not used
-        //     memory_editor.draw_vec(&ui, &self.video_memory_editor)
-        // }
-
         let window = imgui::Window::new(im_str!("CPU and FPS"));
         let delta = self.delta_s;
         let pc = self.pc;
@@ -146,6 +135,7 @@ impl Gui {
 
         // Render Dear ImGui with WGPU
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Hola"),
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: render_target,
                 resolve_target: None,
