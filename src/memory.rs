@@ -179,8 +179,8 @@ impl Memory for BoardMemory {
         tile_rom: Vec::new(),
         sprite_rom: Vec::new(),
         memory_mapped_area: vec![0; 16],
-        in0: 0b1111_1111,
-        in1: 0b1111_1111,
+        in0: 0b1001_1111,
+        in1: 0b1001_1111,
       }
     }
 
@@ -190,8 +190,8 @@ impl Memory for BoardMemory {
         tile_rom: vec![],
         sprite_rom: vec![],
         memory_mapped_area: vec![],
-        in0: 0b1111_1111,
-        in1: 0b1111_1111,
+        in0: 0b1001_1111,
+        in1: 0b1001_1111,
       }
     }
 }

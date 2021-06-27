@@ -17,7 +17,7 @@ pub(crate) struct Gui {
     sp: u16,
     ix: u16,
     iy: u16,
-    video_memory_editor: Vec<u8>
+    in0: u8,
 }
 
 impl Gui {
@@ -79,7 +79,7 @@ impl Gui {
             sp: 0,
             ix: 0,
             iy: 0,
-            video_memory_editor: vec![]
+            in0: 0,
         }
     }
 
@@ -119,6 +119,7 @@ impl Gui {
         let sp = self.sp;
         let ix = self.ix;
         let iy = self.iy;
+        let in0 = self.in0;
         
         window
             .size([400.0, 200.0], Condition::FirstUseEver)
@@ -131,6 +132,7 @@ impl Gui {
                 ui.text(im_str!("SP: {:?}",format!("{:#x}", sp)));
                 ui.text(im_str!("IX: {:?}",format!("{:#x}", ix)));
                 ui.text(im_str!("IY: {:?}",format!("{:#x}", iy)));
+                ui.text(im_str!("in0: {:?}",format!("{:#x}", in0)));
             });
 
         // Render Dear ImGui with WGPU
@@ -173,8 +175,8 @@ impl Gui {
         self.iy = cpu.r.get_u16(Register16Bit::IY);
     }
 
-    pub fn set_memory_editor_mem(&mut self, data: &[u8]) {
-        self.video_memory_editor = data.to_vec()
+    pub fn update_in0(&mut self, in0: &u8) {
+        self.in0 = *in0
     }
 }
 

@@ -83,7 +83,7 @@ impl TileDecoder {
 
     // Middle rows
     for column in 0..28 {
-      for row in 0..=31 {
+      for row in 0..=31 { // Cover rows 0 to 31 inclusive
           let tile_offset = row + (27 - column) * self.rows + 0x40; 
           let tile_data = video_ram[tile_offset] as usize; 
           let palette_data = palette_ram[tile_offset] as usize & 0x3f;

@@ -121,36 +121,34 @@ impl Emulator for Machine {
         self.dt += *dt;
         // Trigger VBLANK interrupt? 
         let mut current_cycles = 0;
+
+        let mut d: u8 = 0b1111_1111 ;
+        if inserted_coin {
+            d = 0b1101_1111;
+        }
+        match direction {
+            Direction::Up => {
+                d &= 0b1111_1110;
+            }
+            Direction::Down => {
+                d &= 0b1111_0111;
+            }
+            Direction::Left => {
+                d &= 0b1111_1101;
+            }
+            Direction::Right => {
+                d &= 0b1111_1011;
+            },
+            _ => {}
+        }
+
+        self.memory.in0 = d; 
+        self.memory.in1 = if player1_start { 0xDF & self.memory.in1 } else { self.memory.in1 };
+        
         while self.dt >= one_frame {
             while current_cycles <= self.cycles_per_frame {
                 current_cycles += self.cpu.exec(&mut self.memory) as usize;
             }
-
-            // Update Inputs
-            if inserted_coin {
-                println!("Inserted Coin!!")
-            }
-
-            let coin = if inserted_coin { 0x20 | self.memory.in0 } else { 0xDF & self.memory.in0 };
-            let mut d: u8 = 0xff;
-            match direction {
-                Direction::Up => {
-                    d = 0b1111_1110;
-                }
-                Direction::Down => {
-                    d = 0b1111_0111;
-                }
-                Direction::Left => {
-                    d = 0b1111_1101;
-                }
-                Direction::Right => {
-                    d = 0b1111_1011;
-                },
-                _ => {}
-            }
-
-            self.memory.in0 = coin & d; 
-            self.memory.in1 = if player1_start { 0xDF & self.memory.in1 } else { self.memory.in1 };
 
             // Update Gfx
             let sprite_rom = &self.memory.sprite_rom;
@@ -166,5 +164,4 @@ impl Emulator for Machine {
             self.dt -= one_frame;
         }
     }
-    
 }

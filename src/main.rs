@@ -24,6 +24,7 @@ use std::env;
 use std::time::Duration;
 use std::time::Instant;
 
+use ::Z80::memory::Memory;
 use gfx_decoder::TileDecoder;
 use gilrs::{Button, Gilrs};
 use gui::Gui;
@@ -94,19 +95,7 @@ fn main () -> Result<(), Error> {
             let now = Instant::now();
             gui.update_delta_time(now - last_frame);
             gui.update_cpu_state(&emulator.cpu);
-            // match world.memory.work_ram.get(0x4000..0x4400) {
-            //     Some(video_ram) => gui.set_memory_editor_mem(&video_ram),
-            //     None => print!("Error?")
-            // }
-
-            // Update internal state and request a redraw
-            // let now = Instant::now();
-            // let dt = now.duration_since(start_time);
-            // start_time = now;
-    
-            // Update the game logic and request redraw
-            // emulator.update(&dt);
-            // window.request_redraw();
+            gui.update_in0(&emulator.memory.r8(0x5000));
 
             last_frame = now;
         }
@@ -163,8 +152,8 @@ fn main () -> Result<(), Error> {
             // Keyboard controls
             let mut left = input.key_held(VirtualKeyCode::Left);
             let mut right = input.key_held(VirtualKeyCode::Right);
-            let up = input.key_held(VirtualKeyCode::Up);
-            let down = input.key_held(VirtualKeyCode::Down);
+            let mut up = input.key_held(VirtualKeyCode::Up);
+            let mut down = input.key_held(VirtualKeyCode::Down);
             // let mut fire = input.key_pressed(VirtualKeyCode::Space);
 
             let insert_coin = input.key_held(VirtualKeyCode::Key5);
@@ -176,23 +165,27 @@ fn main () -> Result<(), Error> {
 
                 left = left || gamepad.is_pressed(Button::DPadLeft);
                 right = right || gamepad.is_pressed(Button::DPadRight);
+                up = up || gamepad.is_pressed(Button::DPadUp);
+                down = down || gamepad.is_pressed(Button::DPadDown);
                 // fire = fire
                 //     || gamepad.button_data(Button::South).map_or(false, |button| {
                 //         button.is_pressed() && button.counter() == gilrs.counter()
                 //     });
             }
 
-            let direction = if left {
-                Direction::Left
-            } else if right {
-                Direction::Right
-            } else if up {
-                Direction::Up
-            } else if down {
-                Direction::Down
-            } else {
-                Direction::Still
-            };
+            let mut direction = Direction::Still;
+            if left {
+                direction = Direction::Left
+            } 
+            if right {
+                direction = Direction::Right
+            } 
+            if up {
+                direction = Direction::Up
+            } 
+            if down {
+                direction = Direction::Down
+            }
 
             // Resize the window
             if let Some(size) = input.window_resized() {
