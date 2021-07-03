@@ -1224,6 +1224,35 @@ use Z80::z80::Z80;
         assert_eq!(0xFD, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN | Flags::NEGATIVE | Flags::CARRY));        
     }
 
+    // #[test]
+    // fn test_add_adc_sbc_16_2() {
+    //     let mut cpu = Z80::new();
+    //     let mut mem = PlainMemory::new_64k();
+    //     let prog = [
+    //         0x2E, 0x81,             // LD L,0x81
+    //         0x3E, 0xC6,             // LD A,0xC6
+    //         0x8D,                   // ADC A,L
+    //         0x21, 0xff, 0x7f,       // LD HL,0x7fff
+    //         0x01, 0x00, 0x80,       // LD BC,0x8000
+    //         0x11, 0x00, 0x80,       // LD DE,0x8000
+    //         0xED, 0x52,             // SBC HL,DE
+    //         0x21, 0x00, 0x00,       // LD HL,0x0000
+    //         0xED, 0x52,             // SBC HL,DE
+    //     ];
+    //     mem.write(0x0000, &prog);
+    //     cpu.exec(&mut  mem);
+    //     cpu.exec(&mut  mem);
+    //     cpu.exec(&mut  mem);
+    //     cpu.exec(&mut  mem);
+    //     assert_eq!(0x7fff, cpu.r.get_u16(Register16Bit::HL));
+    //     cpu.exec(&mut  mem);
+    //     assert_eq!(0x8000, cpu.r.get_u16(Register16Bit::BC));
+    //     cpu.exec(&mut  mem);
+    //     assert_eq!(0x8000, cpu.r.get_u16(Register16Bit::DE));
+    //     cpu.exec(&mut  mem);
+    //     assert_eq!(0x7fff, cpu.r.get_u16(Register16Bit::HL)); assert_eq!(cpu.r.f, Flags::empty());
+    // }
+
     #[test]
     fn test_add_adc_sbc_16() {
         let mut cpu = Z80::new();
