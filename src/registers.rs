@@ -148,6 +148,15 @@ impl Registers {
       }
   }
 
+   /// Returns the value of an 8 bit register
+//    #[inline]
+//    pub fn get8(&self, reg: Reg8) -> u8 {
+//        if reg == Reg8::_HL {
+//            panic!("Can't use the pseudo register (HL)");
+//        }
+//        self.data[reg as usize]
+//    }
+
   pub fn set_u16(&mut self, reg: Register16Bit, value: u16) {
       use self::Register16Bit::*;
       match reg {

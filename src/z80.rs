@@ -1,5 +1,7 @@
 
 
+use std::convert::TryInto;
+
 /// a self instruction is built from 3 bit groups,
 /// the topmost two bits split the instruction space into 4 broad instruction groups,
 /// the other 6 bits form two 3-bit groups which have a different meaning based on the instruction group:
@@ -264,16 +266,16 @@ impl Z80 {
   fn execute_op (& mut self, op: u8, memory: &mut dyn Memory) -> u8 {
     match op {
       0x00 => { self.nop() },
-      0x0f => { self.rrca(A, memory) },
+      0x0f => { self.rrca() },
       0xf3 => { self.di() },
       0x01 => { self.ld_dd_nn(BC,NextU16, memory) },
       0x11 => { self.ld_dd_nn(DE,NextU16, memory) },
       0x21 => { self.ld_dd_nn(HL,NextU16, memory) },
       0x31 => { self.ld_dd_nn(SP,NextU16, memory) },
-      0x07 => {self.rlca(A, memory) },
+      0x07 => {self.rlca() },
       0x08 => { self.ex_ss_ss(AF, AF2, memory) },
-      0x17 => {self.rl_m(A, memory) },
-      0x1f => {self.rra(A, memory) },
+      0x17 => {self.rla() },
+      0x1f => {self.rra() },
       0x09 => { self.add_hl_ss(HL, BC, memory) },
       0x19 => { self.add_hl_ss(HL, DE, memory) },
       0x29 => { self.add_hl_ss(HL, HL, memory) },
@@ -510,6 +512,12 @@ impl Z80 {
 
         match op {
           0x10 => { self.rl_m(B, memory) },
+          0x11 => { self.rl_m(C, memory) },
+          0x12 => { self.rl_m(D, memory) },
+          0x13 => { self.rl_m(E, memory) },
+          0x14 => { self.rl_m(H, memory) },
+          0x15 => { self.rl_m(L, memory) },
+          0x17 => { self.rl_m(A, memory) },
           0x20 => { self.sla_m(B, memory) },
           0x21 => { self.sla_m(C, memory) },
           0x22 => { self.sla_m(D, memory) },
@@ -557,18 +565,18 @@ impl Z80 {
           0x3f => { self.srl_m(A, memory) }
           0| 1 | 2 | 3 | 4 | 5 | 7 => {
             match r {
-              0x0 =>  self.rlca(B, memory),
-              0x1 =>  self.rlca(C, memory),
-              0x2 =>  self.rlca(D, memory),
-              0x4 =>  self.rlca(H, memory),
-              0x3 =>  self.rlca(E, memory),
-              0x5 =>  self.rlca(L, memory),
-              0x7 =>  self.rlca(A, memory),
+              0x0 =>  self.rlc_m(B, memory),
+              0x1 =>  self.rlc_m(C, memory),
+              0x2 =>  self.rlc_m(D, memory),
+              0x4 =>  self.rlc_m(H, memory),
+              0x3 =>  self.rlc_m(E, memory),
+              0x5 =>  self.rlc_m(L, memory),
+              0x7 =>  self.rlc_m(A, memory),
               _ => { panic!("unknown opcode") }
             }
           }
-          0x0E => { self.rrca(Address::HL, memory)}
-          0x06 => { self.rlca(Address::HL, memory)}
+          0x0E => { self.rrc_m(Address::HL, memory)}
+          0x06 => { self.rlc_m(Address::HL, memory)}
           // 0x10 => { }
           _ => {  panic!("unknown opcode {}! at {}", format!("{:#x}", op), format!("{:#x}", self.r.pc)); }
 
@@ -1293,11 +1301,25 @@ impl Z80 {
   }
 
   #[inline]
-  fn rrca<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) -> u8 {
+  fn rrca(&mut self) -> u8 {
+    let a = self.r.a;
+    let r = a.rotate_right(1);
+    self.r.f = Flags::CARRY.check(a & 0x01 == 1) |
+              (Flags::SIGN & self.r.f) |
+              (Flags::ZERO & self.r.f) |
+              (Flags::PARITY & self.r.f);
+    self.r.a = r;
+    self.step();
+    4
+  }
+
+  #[inline]
+  fn rrc_m<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) -> u8 {
     let value = rw.read_u8(self, mem);
     let r = value.rotate_right(1);
     self.r.f = Flags::CARRY.check(value & 0x01 == 1) |
-               Flags::SIGN.check(r & 0x80 != 0) |
+              Flags::ZERO.check(r == 0)|
+              Flags::SIGN.check(r & 0x80 != 0) |
               Flags::PARITY.check(r.count_ones() & 1 == 0);
     rw.write_u8(self, r, mem);
     self.step();
@@ -1305,13 +1327,26 @@ impl Z80 {
   }
 
   #[inline]
-  fn rlca<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) -> u8 {
+  fn rlca(&mut self) -> u8 {
+    let a = self.r.a;
+    let r = a.rotate_left(1);
+    self.r.f = Flags::CARRY.check(a & 0x80 != 0) |
+              (Flags::ZERO & self.r.f) |
+              (Flags::SIGN & self.r.f) |
+              (Flags::PARITY & self.r.f);
+    self.r.a = r;
+    self.step();
+    4
+  }
+
+  #[inline]
+  fn rlc_m<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) -> u8 {
     let value = rw.read_u8(self, mem);
     let r = value.rotate_left(1);
     self.r.f = Flags::CARRY.check(value & 0x80 != 0) |
-      Flags::ZERO.check(r == 0) |
-      Flags::SIGN.check(r & 0x80 != 0) |
-      Flags::PARITY.check(r.count_ones() & 1 == 0);
+              Flags::ZERO.check(r == 0)|
+              Flags::SIGN.check(r & 0x80 != 0) |
+              Flags::PARITY.check(r.count_ones() & 1 == 0);
     rw.write_u8(self, r, mem);
     self.step();
     4
@@ -1333,8 +1368,38 @@ impl Z80 {
   fn rl_m<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) -> u8 {
     let m = rw.read_u8(self, mem);
     let c = m & 0b1000_0000;
-    let temp = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
-    let r = m << 1 | temp;
+    let carry = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
+    let r = m << 1 | carry;
+    self.r.f = Flags::CARRY.check(c != 0) |
+              Flags::ZERO.check(r == 0)|
+              Flags::SIGN.check(r & 0x80 != 0) |
+              Flags::PARITY.check(r.count_ones() & 1 == 0);
+    rw.write_u8(self, r, mem);
+    self.step();
+    4
+  }
+
+  #[inline]
+  fn rla(&mut self) -> u8 {
+    let a = self.r.a;
+    let c = a & 0b1000_0000;
+    let carry = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
+    let r = a << 1 | carry;
+    self.r.f = Flags::CARRY.check(c != 0) |
+        (Flags::ZERO & self.r.f) |
+        (Flags::SIGN & self.r.f) |
+        (Flags::PARITY & self.r.f);
+    self.r.a = r;
+    self.step();
+    4
+  }
+
+  #[inline]
+  fn rr_m<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) -> u8 {
+    let a = self.r.a;
+    let c = a & 0b0000_0001;
+    let carry = if self.r.f.contains(Flags::CARRY) { 0x80 } else { 0 };
+    let r = (a >> 1) | carry;
     self.r.f = Flags::CARRY.check(c != 0) |
         (Flags::ZERO & self.r.f) |
         (Flags::SIGN & self.r.f) |
@@ -1345,16 +1410,16 @@ impl Z80 {
   }
 
   #[inline]
-  fn rra<RW: WriteU8 + ReadU8>(&mut self, rw: RW, mem: &mut dyn Memory) -> u8 {
+  fn rra(&mut self) -> u8 {
     let a = self.r.a;
     let c = a & 0b0000_0001;
-    let temp = if self.r.f.contains(Flags::CARRY) { 0x80 } else { 0 };
-    let r = (a >> 1) | temp;
+    let carry = if self.r.f.contains(Flags::CARRY) { 0x80 } else { 0 };
+    let r = (a >> 1) | carry;
     self.r.f = Flags::CARRY.check(c != 0) |
         (Flags::ZERO & self.r.f) |
         (Flags::SIGN & self.r.f) |
         (Flags::PARITY & self.r.f);
-    rw.write_u8(self, r, mem);
+    self.r.a = r;
     self.step();
     4
   }
