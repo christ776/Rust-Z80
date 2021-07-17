@@ -909,18 +909,20 @@ impl Z80 {
   fn sbc_hl_ss<RW: ReadU16>(&mut self, ss: RW, mem: &mut dyn Memory) -> u8 {
     let hl = self.r.get_u16(Register16Bit::HL) as i32;
     let value = ss.read_u16(self, mem) as i32;
+
     let carried = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
     let result = hl - value - carried;
     // let result = hl.wrapping_sub(value).wrapping_sub(carried);
 
     // Overflow = (added signs are same) && (result sign differs from the sign of either of operands)
-    let overflow =  ((hl ^ value) & 0x8000) == 0 && ((result ^ value) & 0x8000) != 0;
-    let half_carry = (hl ^ value ^ result) >> 8 != 0;
+    let overflow =  ((hl ^ value ^ result) & 0x8000 != 0) && result & 0x8000 == 0;
+    let half_carry = (hl ^ value ^ result) & 0x0100 != 0;
+
     self.r.f = Flags::ZERO.check(result == 0) |
                Flags::NEGATIVE | 
                Flags::HALFCARRY.check(half_carry) |
                Flags::SIGN.check(result & 0x8000 != 0) | 
-               Flags::CARRY.check(result >> 16 != 0) |
+               Flags::CARRY.check(result & 0x10000 != 0) |
                Flags::PARITY.check(overflow);
 
     self.r.set_u16(Register16Bit::HL, result as u16);
@@ -947,8 +949,8 @@ impl Z80 {
 
   #[inline]
   fn sbc_n<WR: WriteU8 + ReadU8>(&mut self, wr: WR, n: u16, mem: &mut dyn Memory) -> u8 {
-    let a = wr.read_u8(self, mem) as i32;
-    let value = n as i32;
+    let a = wr.read_u8(self, mem) as i16;
+    let value = n as i16;
     let carried = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
     let result = a - value - carried;
 
@@ -1636,11 +1638,9 @@ impl Z80 {
     let value = r.read_u16(self, mem) as i32; 
     let carried = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
     let result = hl + value + carried;
-    // let overflow = (hl ^ result ^ value) >> 15 != 0;
+    // let overflow = ((hl ^ value ^ 0x8000) & (value ^ result) & 0x8000) >> 13 != 0;
     let overflow =  ((hl ^ value) & 0x8000) == 0 && ((result ^ value) & 0x8000) != 0;
-  
-    // let mask = 0x0fff;
-    // let half_carry = ((hl & mask) + (value & mask) + carried) & 0x1000 != 0;
+
     let half_carry = (hl ^ result ^ value) >> 8 != 0;
     self.r.f = Flags::ZERO.check(result == 0) |
                 Flags::PARITY.check(overflow) |

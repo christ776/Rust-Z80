@@ -1,7 +1,6 @@
-use std::time::Duration;
+use std::{time::Duration};
 
 use Z80::{HEIGHT, WIDTH, memory::BoardMemory, memory::Memory, z80};
-// use Z80::gfx_decoder::TileDecoder;
 
 use crate::{CPU_CLOCK, Direction, Emulator, Machine, gfx_decoder::TileDecoder, utils::rom_loader::RomLoader};
 
@@ -39,21 +38,36 @@ impl Emulator for Machine {
         RomLoader::load_rom_mut(&String::from("./numcrash/nc-3.6h"), &mut self.memory.work_ram);
     }
 
-    fn load_roms_pacman(&mut self) {
-        // Code ROMs 
-        RomLoader::load_rom_mut(&String::from("./pacman/pacman.6e"), &mut self.memory.work_ram);
-        RomLoader::load_rom_mut(&String::from("./pacman/pacman.6f"), &mut self.memory.work_ram);
-        RomLoader::load_rom_mut(&String::from("./pacman/pacman.6h"), &mut self.memory.work_ram);
-        RomLoader::load_rom_mut(&String::from("./pacman/pacman.6j"), &mut self.memory.work_ram);
-        //Tile ROM
-        RomLoader::load_rom_mut(&String::from("./pacman/pacman.5e"), &mut self.memory.tile_rom);
-        //Sprite ROM
-        RomLoader::load_rom_mut(&String::from("./pacman/pacman.5f"), &mut self.memory.sprite_rom);
+    fn load_roms_mspacman(&mut self) {
+        let rom_contents = [
+                    "pacman.6e",
+                    "pacman.6f", 
+                    "pacman.6h", 
+                    "pacman.6j", 
+                    "pacman.5e", 
+                    "pacman.5f",
+                    "82s123.7f",
+                    "82s126.4a"
+        ];
+        match RomLoader::file_reader("./pacman.zip", rom_contents.to_vec()) {
+            Ok(result) => {
+                RomLoader::load_rom_item("pacman.6e", &result, &mut self.memory.work_ram);
+                RomLoader::load_rom_item("pacman.6f", &result, &mut self.memory.work_ram);
+                RomLoader::load_rom_item("pacman.6h", &result, &mut self.memory.work_ram);
+                RomLoader::load_rom_item("pacman.6j", &result, &mut self.memory.work_ram);
+                RomLoader::load_rom_item("pacman.5e", &result, &mut self.memory.tile_rom);
+                RomLoader::load_rom_item("pacman.5f", &result, &mut self.memory.sprite_rom);
+                RomLoader::load_rom_item("82s123.7f", &result, &mut self.memory.color_rom);
+                RomLoader::load_rom_item("82s126.4a", &result, &mut self.memory.palette_rom);
+                
+            },
+            Err(error) => println!("Error {}", error)
+        };
+    }
 
+    fn process_color_and_palette(&mut self) {
         //Color Rom
-        let mut color_rom: Vec<u8> = vec![];
-        RomLoader::load_rom_mut(&String::from("./pacman/82s123.7f"), &mut color_rom);
-        let color_tables: Vec<u32> = color_rom.iter().map(|entry| {
+        let color_tables: Vec<u32> = self.memory.color_rom.iter().map(|entry| {
             
             let mut red: u8 = 0; 
             if entry & 0x1 != 0 { red +=0x21; };
@@ -73,18 +87,16 @@ impl Emulator for Machine {
             let result = [ red, green, blue, 0xff ];
             RomLoader::as_u32_be(&result)
         }).collect();
-         
+            
         //Palette Rom
-        let mut palette_rom: Vec<u8> = vec![];
-        RomLoader::load_rom_mut(&String::from("./pacman/82s126.4a"), &mut palette_rom);
         let mut palette_with_colors = vec![];
         let mut temp_storage: Vec<u32> = Vec::new();
-        for (index,palette) in palette_rom.iter().enumerate() {
+        for (index,palette) in self.memory.palette_rom.iter().enumerate() {
             if index % 4 == 0 && index != 0 {
                 palette_with_colors.push(temp_storage.clone());
                 temp_storage.clear();
             }
-            if index == palette_rom.len() - 1 {
+            if index == self.memory.palette_rom.len() - 1 {
                 temp_storage.push(color_tables[*palette as usize]);
                 palette_with_colors.push(temp_storage.clone());
             }
@@ -92,7 +104,10 @@ impl Emulator for Machine {
             temp_storage.push(color_tables[*palette as usize]);
         }
         self.gfx_decoder.color_palettes = palette_with_colors;
+    }
 
+
+    fn init_ram_and_apply_hacks(&mut self) {
         // Working RAM ... it's a bit of a hack for now
         // &mem.work_ram.append(&mut video_ram);
         let working_ram_size =  1024              // Video RAM (tile information)
@@ -106,6 +121,32 @@ impl Emulator for Machine {
         self.memory.work_ram[0x30fb as usize] = 0xc3;
         self.memory.work_ram[0x30fc as usize] = 0x74;
         self.memory.work_ram[0x30fd as usize] = 0x31;
+    }
+
+    fn load_roms_pacman(&mut self) {
+        let rom_contents = [
+            "pacman.6e",
+            "pacman.6f", 
+            "pacman.6h", 
+            "pacman.6j", 
+            "pacman.5e", 
+            "pacman.5f",
+            "82s123.7f",
+            "82s126.4a"
+           ];
+        match RomLoader::file_reader("./pacman.zip", rom_contents.to_vec()) {
+        Ok(result) => {
+            RomLoader::load_rom_item("pacman.6e", &result, &mut self.memory.work_ram);
+            RomLoader::load_rom_item("pacman.6f", &result, &mut self.memory.work_ram);
+            RomLoader::load_rom_item("pacman.6h", &result, &mut self.memory.work_ram);
+            RomLoader::load_rom_item("pacman.6j", &result, &mut self.memory.work_ram);
+            RomLoader::load_rom_item("pacman.5e", &result, &mut self.memory.tile_rom);
+            RomLoader::load_rom_item("pacman.5f", &result, &mut self.memory.sprite_rom);
+            RomLoader::load_rom_item("82s123.7f", &result, &mut self.memory.color_rom);
+            RomLoader::load_rom_item("82s126.4a", &result, &mut self.memory.palette_rom);
+        },
+            Err(error) => println!("Error {}", error)
+        };
     }
 
 

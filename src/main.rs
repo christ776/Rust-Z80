@@ -46,19 +46,27 @@ pub enum Direction {
 
 fn main () -> Result<(), Error> {
 
+    let mut emulator = Machine::new();
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
         println!("Game to load: {}", args[1]);
-        let mut emulator = Machine::new();
         let game_name = &args[1];
         match game_name.as_str() {
             "pacman" => {
                 emulator.load_roms_pacman();
-            },
+            } 
+            "mspacman" => {
+                emulator.load_roms_mspacman();
+            }
             "numcrash" => emulator.load_roms_numcrash(),
-            _ => {}
+            _ => {
+                panic!("Missing game !. Format is ....")
+            }
         }
     }
+
+    emulator.process_color_and_palette();
+    emulator.init_ram_and_apply_hacks();
 
     let event_loop = EventLoop::new();
     let _input = WinitInputHelper::new();
@@ -67,8 +75,7 @@ fn main () -> Result<(), Error> {
     let mut pixels = Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture)?;
     let mut start_time = Instant::now();
     let mut last_frame = Instant::now();
-    let mut emulator = Machine::new();
-    emulator.load_roms_pacman();
+    // emulator.load_roms_pacman();
     let mut input = WinitInputHelper::new();
 
     // Gamepads
@@ -204,10 +211,33 @@ fn main () -> Result<(), Error> {
     });
 }
 
+// fn load_roms(emulator: &dyn Emulator) {
+//     let args: Vec<String> = env::args().collect();
+//     if args.len() > 1 {
+//         println!("Game to load: {}", args[1]);
+//         let game_name = &args[1];
+//         match game_name.as_str() {
+//             "pacman" => {
+//                 emulator.load_roms_pacman();
+//             } 
+//             "mspacman" => {
+//                 emulator.load_roms_mspacman();
+//             }
+//             "numcrash" => emulator.load_roms_numcrash(),
+//             _ => {
+//                 panic!("Missing game !. Format is ....")
+//             }
+//         }
+//     }
+// }
+
 pub trait Emulator {
     fn new() -> Self;
     fn load_roms_pacman(&mut self);
     fn load_roms_numcrash(&mut self);
+    fn load_roms_mspacman(&mut self);
+    fn process_color_and_palette(&mut self);
+    fn init_ram_and_apply_hacks(&mut self);
     fn draw(&mut self, frame: &mut [u8]);
     fn update(&mut self, 
         dt: &Duration, 
