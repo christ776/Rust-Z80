@@ -135,11 +135,12 @@ impl Gui {
                 ui.text(im_str!("in0: {:?}",format!("{:#x}", in0)));
             });
 
+            
         // Render Dear ImGui with WGPU
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Hola"),
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment: render_target,
+            label: Some("UI Renderpass"),
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: render_target,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,

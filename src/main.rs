@@ -133,8 +133,8 @@ fn main () -> Result<(), Error> {
                 context.scaling_renderer.render(encoder, render_target);
 
                 // Render Dear ImGui
-                gui.render(&window, encoder, render_target, context)
-                    .expect("gui.render() failed");
+                // gui.render(&window, encoder, render_target, context)
+                //     .expect("gui.render() failed");
             });
 
             // Basic error handling
@@ -252,6 +252,7 @@ struct Machine {
     pixel_buffer: Vec<u32>,
     cycles_per_frame: usize,
     gfx_decoder:TileDecoder,
+    inserted_coins: u8,
 }
 
 

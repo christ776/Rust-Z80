@@ -49,10 +49,12 @@ impl RomLoader {
         Ok(rom_map)
     }
 
-    pub fn load_rom_item(item_name: &str, rom_contents: &HashMap<String, Vec<u8>>, mem: &mut Vec<u8>) {
-        match rom_contents.get(&item_name.to_string()) {
-            Some(data) => mem.extend(data),
-            None => println!("Error!!")
+    pub fn load_rom_item(item_name: &str, rom_contents: &HashMap<String, Vec<u8>>, mem: &mut Vec<u8>, at_position: usize) {
+        if let Some(data) = rom_contents.get(&item_name.to_string()) {
+            mem.splice(at_position..at_position + data.len(),
+             data.iter().cloned());
+        } else {
+            println!("Error!!")
         }
     }
 }

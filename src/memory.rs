@@ -177,11 +177,11 @@ impl Memory for BoardMemory {
 
     fn new() -> BoardMemory {
       BoardMemory{
-        work_ram: Vec::new(),
-        tile_rom: Vec::new(),
-        sprite_rom: Vec::new(),
-        color_rom: Vec::new(),
-        palette_rom: Vec::new(),
+        work_ram: vec![0; 0x4000],
+        tile_rom: vec![0; 0x1000],
+        sprite_rom: vec![0; 0x1000],
+        color_rom: vec![0; 0x0020],
+        palette_rom: vec![0; 0x0100],
         memory_mapped_area: vec![0; 16],
         in0: 0b1001_1111,
         in1: 0b1001_1111,

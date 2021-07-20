@@ -9,13 +9,13 @@ optimize = ["log/release_max_level_warn"]
 default = ["optimize"]
 
 [dependencies]
-pixels = "0.3.0"
+pixels = "0.4.0"
 winit = "0.24"
 env_logger = "0.8"
 winit_input_helper = "0.9.0"
 log = "0.4.8"
 imgui = "0.7"
-imgui-wgpu = "0.14"
+imgui-wgpu = "0.15.1"
 imgui-winit-support = "0.7"
 bitflags = "1.2.1"
 gilrs = "0.8.1"
