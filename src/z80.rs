@@ -1,7 +1,3 @@
-
-
-use std::convert::TryInto;
-
 /// a self instruction is built from 3 bit groups,
 /// the topmost two bits split the instruction space into 4 broad instruction groups,
 /// the other 6 bits form two 3-bit groups which have a different meaning based on the instruction group:
@@ -912,11 +908,11 @@ impl Z80 {
 
     let carried = if self.r.f.contains(Flags::CARRY) { 1 } else { 0 };
     let result = hl - value - carried;
-    // let result = hl.wrapping_sub(value).wrapping_sub(carried);
 
     // Overflow = (added signs are same) && (result sign differs from the sign of either of operands)
     let overflow =  ((hl ^ value ^ result) & 0x8000 != 0) && result & 0x8000 == 0;
-    let half_carry = (hl ^ value ^ result) & 0x0100 != 0;
+    // let half_carry = (hl ^ value ^ result) & 0x0100 != 0;
+    let half_carry = ((hl & 0x0fff) - (value & 0x0fff) - carried) & 0x1000 != 0;
 
     self.r.f = Flags::ZERO.check(result == 0) |
                Flags::NEGATIVE | 
@@ -1096,14 +1092,19 @@ impl Z80 {
 
   #[inline]
   fn cp_n(&mut self, n: u8) -> u8 {
-    let result = self.r.a.wrapping_sub(n);
+    let a = self.r.a as u16;
+    let value = n as u16;
+    let result = a.wrapping_sub(value);
+
+    let borrow = (a & 0xf) < (value & 0xf);
+    let carry = result >> 8 != 0;
 
     self.r.f = Flags::ZERO.check(result == 0) |
                 Flags::NEGATIVE |
                 Flags::SIGN.check(result & 0x80 != 0) |
-                Flags::HALFCARRY.check((self.r.a & 0xF) < (n & 0xF)) |
-                Flags::PARITY.check(result >= 0x80 || result <= 0x81) | 
-                Flags::CARRY.check(self.r.a < n);
+                Flags::HALFCARRY.check(borrow) |
+                Flags::PARITY.check(result >= 127 || (result as i16 <= -128)) | 
+                Flags::CARRY.check(carry);
     self.step();
     7
   }
@@ -1465,8 +1466,8 @@ impl Z80 {
 
   #[inline]
   pub fn sub_n(&mut self, n: u8) -> u8 {
-    let a = self.r.a as i16; 
-    let value = n as i16;
+    let a = self.r.a as u16; 
+    let value = n as u16;
     let result = a.wrapping_sub(value);
     
     let borrow = (a & 0xf) < (value & 0xf);
@@ -1475,8 +1476,8 @@ impl Z80 {
     self.r.f = Flags::ZERO.check(result == 0) | 
                 Flags::HALFCARRY.check(borrow) | 
                 Flags::NEGATIVE | 
-                Flags::SIGN.check(result & 0x80 != 0) |
-                Flags::PARITY.check(result >= 127 || result <= -128) | 
+                Flags::SIGN.check(result &0x80 != 0) |
+                Flags::PARITY.check(result >= 127 || (result as i16 <= -128)) | 
                 Flags::X.check(self.get_bit_at(result as usize, 3)) |
                 Flags::Y.check(self.get_bit_at(result as usize, 5)) |
                 Flags::CARRY.check( carry);
@@ -1528,7 +1529,7 @@ impl Z80 {
     let result = self.r.a & n;
     self.r.a = result;
     self.r.f = Flags::ZERO.check(result == 0) |
-      Flags::PARITY.check(result > 0x80) |
+      Flags::PARITY.check(result.count_ones() & 1 == 0) |
       Flags::HALFCARRY |
       Flags::SIGN.check(result & 0x80 != 0);
     
@@ -1615,11 +1616,11 @@ impl Z80 {
     let result = a + value + carried;
   
     // let carry = a as u16 + n as u16 + carried as u16 > 0xFF;
-    // let half_carry = (a & 0xF) + (n & 0xF) + carried > 0xF;
+    let half_carry = ((a & 0xF) + (value & 0xF) + carried) & 0x10 != 0;
 
     let xor = a ^ value ^ result;
     let carry  = xor & 0x0100 != 0;
-    let half_carry  = xor & 0x0010 != 0;
+    // let half_carry  = xor & 0x0010 != 0;
 
     self.r.f =  Flags::ZERO.check(result == 0) |
                 Flags::PARITY.check(result > 0x80) |
@@ -1640,8 +1641,8 @@ impl Z80 {
     let result = hl + value + carried;
     // let overflow = ((hl ^ value ^ 0x8000) & (value ^ result) & 0x8000) >> 13 != 0;
     let overflow =  ((hl ^ value) & 0x8000) == 0 && ((result ^ value) & 0x8000) != 0;
-
-    let half_carry = (hl ^ result ^ value) >> 8 != 0;
+    let half_carry = ((hl & 0x0fff) + (value & 0x0fff) + carried) & 0x1000 != 0;
+    // let half_carry = (hl ^ result ^ value) >> 8 != 0;
     self.r.f = Flags::ZERO.check(result == 0) |
                 Flags::PARITY.check(overflow) |
                 Flags::HALFCARRY.check(half_carry) | 
@@ -1658,7 +1659,7 @@ impl Z80 {
       let value = rw.read_u8(self, mem);
       let result = value.wrapping_sub(1);
       let a = rw.read_u8(self, mem);
-
+      let half_carry = ((a & 0x0f) - (value & 0x0f)) & 0x10 != 0;
       rw.write_u8(self, result, mem);
       self.r.f = Flags::NEGATIVE | Flags::SIGN.check(result & 0x80 != 0) 
         | Flags::ZERO.check(result == 0) |
@@ -1691,7 +1692,7 @@ impl Z80 {
       let a = self.r.a;
       let (result, carry) = a.overflowing_add(n);
 
-      let half_carry = (a & 0xF) + (n & 0xF) > 0xF;
+      let half_carry = (a & 0xF) + (n & 0xF) & 0x10 != 0;
       self.r.f = Flags::ZERO.check(result == 0) |
                  Flags::SIGN.check(result & 0x80 != 0) |
                  Flags::HALFCARRY.check(half_carry) |

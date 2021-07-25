@@ -211,26 +211,6 @@ fn main () -> Result<(), Error> {
     });
 }
 
-// fn load_roms(emulator: &dyn Emulator) {
-//     let args: Vec<String> = env::args().collect();
-//     if args.len() > 1 {
-//         println!("Game to load: {}", args[1]);
-//         let game_name = &args[1];
-//         match game_name.as_str() {
-//             "pacman" => {
-//                 emulator.load_roms_pacman();
-//             } 
-//             "mspacman" => {
-//                 emulator.load_roms_mspacman();
-//             }
-//             "numcrash" => emulator.load_roms_numcrash(),
-//             _ => {
-//                 panic!("Missing game !. Format is ....")
-//             }
-//         }
-//     }
-// }
-
 pub trait Emulator {
     fn new() -> Self;
     fn load_roms_pacman(&mut self);
@@ -252,7 +232,7 @@ struct Machine {
     pixel_buffer: Vec<u32>,
     cycles_per_frame: usize,
     gfx_decoder:TileDecoder,
-    inserted_coins: u8,
+    aux_board_enabled: bool
 }
 
 

@@ -17,6 +17,7 @@ pub struct BoardMemory {
   pub memory_mapped_area: Vec<u8>,
   pub in0: u8,
   pub in1: u8,
+  aux_board_enabled: bool
 }
 
 pub struct PlainMemory {
@@ -82,7 +83,6 @@ impl Memory for BoardMemory {
     }
 
     fn w8(&mut self, address:u16, data:u8) {
-      let address= address & 0x7fff;
       match address {
         0x0000..=0x3fff => {
           println!("Attempted to write to ROM!");
@@ -96,6 +96,7 @@ impl Memory for BoardMemory {
           // writing a 1 to this address will enable the additional functionality provided by the
           // board, which is special behavior when reading memory locations.
           println!("Enable Aux board");
+          self.aux_board_enabled = true;
         },
         0x5003 => {
           println!("Flip screen");
@@ -163,7 +164,7 @@ impl Memory for BoardMemory {
           self.in1 // IN1: Read IN1: Joystick and coin slot
         },
         0x5080..=0x50bf => {
-          0xc9 //Dip-Switch byte
+          0b1100_1001 //Dip-Switch byte
         }
         0x4400..=0x47ff => {
           0x7f
@@ -177,7 +178,7 @@ impl Memory for BoardMemory {
 
     fn new() -> BoardMemory {
       BoardMemory{
-        work_ram: vec![0; 0x4000],
+        work_ram: vec![0; 0xc000],
         tile_rom: vec![0; 0x1000],
         sprite_rom: vec![0; 0x1000],
         color_rom: vec![0; 0x0020],
@@ -185,6 +186,7 @@ impl Memory for BoardMemory {
         memory_mapped_area: vec![0; 16],
         in0: 0b1001_1111,
         in1: 0b1001_1111,
+        aux_board_enabled: false
       }
     }
 
@@ -197,7 +199,8 @@ impl Memory for BoardMemory {
         palette_rom: Vec::new(),
         memory_mapped_area: vec![],
         in0: 0b1001_1111,
-        in1: 0b1001_1111,
+        in1: 0b1000_1111,
+        aux_board_enabled: false
       }
     }
 }

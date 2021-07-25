@@ -15,7 +15,7 @@ impl Emulator for Machine {
             cpu: z80::Z80::new(),
             cycles_per_frame: CPU_CLOCK / 60,
             gfx_decoder: TileDecoder::new(WIDTH, HEIGHT),
-            inserted_coins: 0,
+            aux_board_enabled: false
         }
     }
 
@@ -84,9 +84,9 @@ impl Emulator for Machine {
         self.memory.work_ram.append(&mut working_ram);
         // ; skip the checksum test, change 30fb to: ; HACK 0
         // ; 30fb  c37431    jp      #3174		; run the game!
-        // self.memory.work_ram[0x30fb as usize] = 0xc3;
-        // self.memory.work_ram[0x30fc as usize] = 0x74;
-        // self.memory.work_ram[0x30fd as usize] = 0x31;
+        self.memory.work_ram[0x30fb as usize] = 0xc3;
+        self.memory.work_ram[0x30fc as usize] = 0x74;
+        self.memory.work_ram[0x30fd as usize] = 0x31;
     }
 
     fn load_roms_numcrash(&mut self) {
@@ -106,6 +106,8 @@ impl Emulator for Machine {
                     "u5", 
                     "u6", 
                     "u7", 
+                    "5e",
+                    "5f",
                     "82s123.7f",
                     "82s126.4a"
         ];
@@ -113,13 +115,13 @@ impl Emulator for Machine {
             Ok(result) => {
                 RomLoader::load_rom_item("pacman.6e", &result, &mut self.memory.work_ram, 0);
                 RomLoader::load_rom_item("pacman.6f", &result, &mut self.memory.work_ram, 0x1000);
-                RomLoader::load_rom_item("pacman.6h", &result, &mut self.memory.work_ram, 0x1000);
-                RomLoader::load_rom_item("pacman.6j", &result, &mut self.memory.work_ram, 0x1000);
+                RomLoader::load_rom_item("pacman.6h", &result, &mut self.memory.work_ram, 0x2000);
+                RomLoader::load_rom_item("pacman.6j", &result, &mut self.memory.work_ram, 0x3000);
                 RomLoader::load_rom_item("u5", &result, &mut self.memory.work_ram, 0x8000);
                 RomLoader::load_rom_item("u6", &result, &mut self.memory.work_ram, 0x9000);
                 RomLoader::load_rom_item("u7", &result, &mut self.memory.work_ram, 0xb000);
                 RomLoader::load_rom_item("5e", &result, &mut self.memory.tile_rom, 0);
-                RomLoader::load_rom_item("5e", &result, &mut self.memory.sprite_rom, 0);
+                RomLoader::load_rom_item("5f", &result, &mut self.memory.sprite_rom, 0);
                 RomLoader::load_rom_item("82s123.7f", &result, &mut self.memory.color_rom, 0);
                 RomLoader::load_rom_item("82s126.4a", &result, &mut self.memory.palette_rom, 0);
                 
@@ -143,8 +145,8 @@ impl Emulator for Machine {
         Ok(result) => {
             RomLoader::load_rom_item("pacman.6e", &result, &mut self.memory.work_ram, 0);
             RomLoader::load_rom_item("pacman.6f", &result, &mut self.memory.work_ram, 0x1000);
-            RomLoader::load_rom_item("pacman.6h", &result, &mut self.memory.work_ram, 0x1000);
-            RomLoader::load_rom_item("pacman.6j", &result, &mut self.memory.work_ram, 0x1000);
+            RomLoader::load_rom_item("pacman.6h", &result, &mut self.memory.work_ram, 0x2000);
+            RomLoader::load_rom_item("pacman.6j", &result, &mut self.memory.work_ram, 0x3000);
             RomLoader::load_rom_item("pacman.5e", &result, &mut self.memory.tile_rom, 0);
             RomLoader::load_rom_item("pacman.5f", &result, &mut self.memory.sprite_rom, 0);
             RomLoader::load_rom_item("82s123.7f", &result, &mut self.memory.color_rom, 0);
