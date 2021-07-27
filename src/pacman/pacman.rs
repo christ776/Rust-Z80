@@ -84,9 +84,9 @@ impl Emulator for Machine {
         self.memory.work_ram.append(&mut working_ram);
         // ; skip the checksum test, change 30fb to: ; HACK 0
         // ; 30fb  c37431    jp      #3174		; run the game!
-        self.memory.work_ram[0x30fb as usize] = 0xc3;
-        self.memory.work_ram[0x30fc as usize] = 0x74;
-        self.memory.work_ram[0x30fd as usize] = 0x31;
+        // self.memory.work_ram[0x30fb as usize] = 0xc3;
+        // self.memory.work_ram[0x30fc as usize] = 0x74;
+        // self.memory.work_ram[0x30fd as usize] = 0x31;
     }
 
     fn load_roms_numcrash(&mut self) {
