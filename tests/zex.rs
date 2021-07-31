@@ -19,7 +19,7 @@ mod zex {
         /*
         System call 5
 
-        .org $5
+        .org $5 
             out ($0), a
             ret
         */
@@ -30,7 +30,8 @@ mod zex {
 
           // Patch to run a single test
         let run_single_test = true;
-        let single_test = 0;
+        // let single_test = 27;
+        let single_test = 60;
         if run_single_test {
             let mut test_start = mem.r16(0x0120);
             test_start += single_test*2;
