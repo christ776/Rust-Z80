@@ -192,7 +192,7 @@ use Z80::z80::Z80;
       assert_eq!(2, cpu.r.l); 
   }
 
-  #[test]
+//   #[test]test_daa
   fn test_rrc_rlc_rr_rl_ihlixiy() {
     let mut cpu = Z80::new();
     let mut mem = PlainMemory::new_64k();
@@ -1450,6 +1450,23 @@ use Z80::z80::Z80;
         cpu.exec(&mut mem);
         assert_eq!(0x01, cpu.r.a); assert!(cpu.r.f.contains(Flags::NEGATIVE));        
     }
+    #[test]
+    fn test_sub_r_overflows() {
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        let prog = [
+            0x3E, 0x81,     // LD A,0x81 Load A with -127
+            0x06, 0x05,     // LD B,0x05
+            0x90,           // SUB A,B
+        ];
+        mem.write(0x0000, &prog);
+        cpu.exec(&mut mem);
+        cpu.exec(&mut mem);
+        assert_eq!(0x81, cpu.r.a); 
+        assert_eq!(0x05, cpu.r.b); 
+        cpu.exec(&mut mem);
+        assert_eq!(0x7c, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+    }
 
     #[test]
     fn sub8() {
@@ -1470,6 +1487,169 @@ use Z80::z80::Z80;
     }
 
     #[test]
+    fn test_or_r() {
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        let prog = [
+            0x97,           // SUB A
+            0x06, 0x01,     // LD B,0x01
+            0x0E, 0x02,     // LD C,0x02
+            0x16, 0x04,     // LD D,0x04
+            0x1E, 0x08,     // LD E,0x08
+            0x26, 0x10,     // LD H,0x10
+            0x2E, 0x20,     // LD L,0x20
+            0xB7,           // OR A
+            0xB0,           // OR B
+            0xB1,           // OR C
+            0xB2,           // OR D
+            0xB3,           // OR E
+            0xB4,           // OR H
+            0xB5,           // OR L
+            0xF6, 0x40,     // OR 0x40
+            0xF6, 0x80,     // OR 0x80
+        ];
+        mem.write(0x0000, &prog);
+
+        for _ in 0..7 {
+            cpu.exec(&mut mem);
+        }
+        cpu.exec(&mut mem);
+        assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY | Flags::ZERO));
+        cpu.exec(&mut mem);
+        assert_eq!(0x01, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0x03, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x07, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0x0F, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x1F, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0x3F, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x7F, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0xFF, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY | Flags::SIGN));        
+    }
+
+    #[test]
+    fn test_xor_r() {
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        let prog = [
+            0x97,           // SUB A
+            0x06, 0x01,     // LD B,0x01
+            0x0E, 0x03,     // LD C,0x03
+            0x16, 0x07,     // LD D,0x07
+            0x1E, 0x0F,     // LD E,0x0F
+            0x26, 0x1F,     // LD H,0x1F
+            0x2E, 0x3F,     // LD L,0x3F
+            0xAF,           // XOR A
+            0xA8,           // XOR B
+            0xA9,           // XOR C
+            0xAA,           // XOR D
+            0xAB,           // XOR E
+            0xAC,           // XOR H
+            0xAD,           // XOR L
+            0xEE, 0x7F,     // XOR 0x7F
+            0xEE, 0xFF,     // XOR 0xFF
+        ];
+        
+        mem.write(0x0000, &prog);
+
+        for _ in 0..7 {
+            cpu.exec(&mut mem);
+        }
+        
+        cpu.exec(&mut mem);
+        assert_eq!(0x00, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY | Flags::ZERO));
+        cpu.exec(&mut mem);
+        assert_eq!(0x01, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0x02, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0x05, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x0A, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x15, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0x2A, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+        cpu.exec(&mut mem);
+        assert_eq!(0x55, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0xAA, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY | Flags::SIGN)); 
+    }
+
+    #[test]
+    fn test_or_xor_ihlixiy() {
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        let data = [ 0x41, 0x62, 0x84 ];
+        mem.write(0x1000, &data);
+        let prog = [
+            0x21, 0x00, 0x10,           // LD HL,0x1000
+            0xDD, 0x21, 0x00, 0x10,     // LD IX,0x1000
+            0xFD, 0x21, 0x03, 0x10,     // LD IY,0x1003
+            0xB6,                       // OR (HL)
+            0xDD, 0xB6, 0x01,           // OR (IX+1)
+            0xFD, 0xB6, 0xFF,           // OR (IY-1)
+            0xAE,                       // XOR (HL)
+            0xDD, 0xAE, 0x01,           // XOR (IX+1)
+            0xFD, 0xAE, 0xFF,           // XOR (IY-1)
+        ];
+        mem.write(0x0000, &prog);
+
+        // skip loads
+        for _ in 0..3 {
+            cpu.exec(&mut mem);
+        }
+        cpu.exec(&mut mem);
+        assert_eq!(0x41, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x63, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0xE7, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY | Flags::SIGN));
+        cpu.exec(&mut mem);
+        assert_eq!(0xA6, cpu.r.a); assert!(cpu.r.f.contains(Flags::PARITY | Flags::SIGN));
+        cpu.exec(&mut mem);
+        assert_eq!(0xC4, cpu.r.a); assert!(cpu.r.f.contains(Flags::SIGN));
+        cpu.exec(&mut mem);
+        assert_eq!(0x40, cpu.r.a); assert_eq!(cpu.r.f, Flags::empty());
+    }
+
+    #[test]
+    fn test_and_ihlixiy() {
+        let mut cpu = Z80::new();
+        let mut mem = PlainMemory::new_64k();
+        let data = [ 0xFE, 0xAA, 0x99 ];
+        mem.write(0x1000, &data);
+        let prog = [
+            0x21, 0x00, 0x10,           // LD HL,0x1000
+            0xDD, 0x21, 0x00, 0x10,     // LD IX,0x1000
+            0xFD, 0x21, 0x03, 0x10,     // LD IY,0x1003
+            0x3E, 0xFF,                 // LD A,0xFF
+            0xA6,                       // AND (HL)
+            0xDD, 0xA6, 0x01,           // AND (IX+1)
+            0xFD, 0xA6, 0xFF,           // AND (IX-1)
+        ];
+        mem.write(0x0000, &prog);
+
+        // skip loads
+        for _ in 0..4 {
+            cpu.exec(&mut mem);
+        }
+        cpu.exec(&mut mem);
+        assert_eq!(0xFE, cpu.r.a); assert!(cpu.r.f.contains(Flags::HALFCARRY | Flags::SIGN));
+        cpu.exec(&mut mem);
+        assert_eq!(0xAA, cpu.r.a); assert!(cpu.r.f.contains(Flags::HALFCARRY | Flags::SIGN | Flags::PARITY));
+        cpu.exec(&mut mem);
+        assert_eq!(0x88, cpu.r.a); assert!(cpu.r.f.contains(Flags::HALFCARRY | Flags::SIGN | Flags::PARITY));
+    }
+
+    #[test]
+    
     fn test_sla_r() {
         let mut cpu = Z80::new();
         let mut mem = PlainMemory::new_64k();

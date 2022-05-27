@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::OsStr, fs::File, io::{BufRead, BufReader, Cursor, Error, Read}, iter::Map, path::Path};
+use std::{collections::HashMap, ffi::OsStr, fs::File, io::{Error, Read}, path::Path};
 
 use zip::read::ZipArchive;
 

@@ -2,7 +2,7 @@ use std::{fs::File, io::BufWriter, path::Path};
 use Z80::utils::rom_loader::RomLoader;
 
 #[cfg(test)]
-#[test]
+// #[test]
 fn test_palette() {
     let mut color_rom: Vec<u8> = vec![];
 

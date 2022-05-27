@@ -76,6 +76,7 @@ impl Memory for PlainMemory {
 impl Memory for BoardMemory {
 
     fn w16(&mut self, addr:u16, data: u16) {
+      let addr= addr & 0x7fff;
       let l = (data & 0x00FF) as u8;
       let h = (data >> 8) as u8;
       self.w8(addr, l);
@@ -83,6 +84,7 @@ impl Memory for BoardMemory {
     }
 
     fn w8(&mut self, address:u16, data:u8) {
+      let address= address & 0x7fff;
       match address {
         0x0000..=0x3fff => {
           println!("Attempted to write to ROM!");
@@ -150,12 +152,14 @@ impl Memory for BoardMemory {
     }
 
     fn r16(&self, addr: u16) -> u16 {
+        let addr= addr & 0x7fff;
         let l:u16 = self.work_ram[addr as usize].into();
         let h: u16 = self.work_ram[(addr +1) as usize].into();
         h << 8 | l
     }
 
     fn r8(&self, addr: u16) -> u8 {
+      let addr= addr & 0x7fff;
       match addr {
         0x5000..=0x503f => { // Read IN0: Joystick and coin slot
           self.in0

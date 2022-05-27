@@ -59,12 +59,12 @@ impl Gui {
         // Create Dear ImGui WGPU renderer
         let device = pixels.device();
         let queue = pixels.queue();
-        let texture_format = wgpu::TextureFormat::Bgra8UnormSrgb;
+        // let texture_format = wgpu::TextureFormat::Bgra8UnormSrgb;
         let config = imgui_wgpu::RendererConfig {
-            texture_format,
+            texture_format: pixels.render_texture_format(),
             ..Default::default()
         };
-        let renderer = imgui_wgpu::Renderer::new(&mut imgui, &device, &queue, config);
+        let renderer = imgui_wgpu::Renderer::new(&mut imgui, device, queue, config);
 
         // Return GUI context
         Self {

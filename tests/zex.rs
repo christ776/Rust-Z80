@@ -29,9 +29,9 @@ mod zex {
         }
 
           // Patch to run a single test
-        let run_single_test = true;
+        let run_single_test = false;
         // let single_test = 27;
-        let single_test = 60;
+        let single_test = 5;
         if run_single_test {
             let mut test_start = mem.r16(0x0120);
             test_start += single_test*2;
