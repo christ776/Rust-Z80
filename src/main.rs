@@ -122,7 +122,7 @@ fn main () -> Result<(), Error> {
         }
 
         if let Event::RedrawRequested(_) = event {
-            emulator.draw(pixels.get_frame());
+            emulator.draw(pixels.get_frame_mut());
 
              // Prepare Dear ImGui
              gui.prepare(&window).expect("gui.prepare() failed");
@@ -135,6 +135,7 @@ fn main () -> Result<(), Error> {
                 // Render Dear ImGui
                 gui.render(&window, encoder, render_target, context)
                     .expect("gui.render() failed");
+                Ok(())
             });
 
             // Basic error handling

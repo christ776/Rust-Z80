@@ -8,7 +8,7 @@ mod zex {
     static PROG: &'static [u8] = include_bytes!("resources/8080EX1.COM");
 
     #[test]
-    #[ignore]
+    // #[ignore]
     fn test_ex8080() {
         let mut tests_passed = 0;
         let mut cpu = Z80::new();
